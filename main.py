@@ -28,8 +28,8 @@ class Zeta:
 		self.vecLatencyVals = []
 
 
-def getZeta(vecSpikeTimes, matEventTimes, dblUseMaxDur=None, intResampNum=50, intPlot=0,
-		intLatencyPeaks=4, vecRestrictRange=(-np.inf,np.inf), boolVerbose=False):
+def getZeta(vecSpikeTimes, matEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=0,
+		intLatencyPeaks=2, vecRestrictRange=(-np.inf,np.inf), boolVerbose=False):
 	"""Calculates neuronal responsiveness index zeta
 	syntax: [dblZetaP,vecLatencies,sZETA,sRate] = getZeta(vecSpikeTimes,vecEventStarts,dblUseMaxDur,intResampNum,intPlot,intLatencyPeaks,vecRestrictRange,boolVerbose)
 		input:
@@ -37,9 +37,9 @@ def getZeta(vecSpikeTimes, matEventTimes, dblUseMaxDur=None, intResampNum=50, in
 		- vecEventTimes [T x 1]: event on times (s), or [T x 2] including event off times to calculate mean-rate difference
 		- dblUseMaxDur: float (s), window length for calculating ZETA: ignore all spikes beyond this duration after event onset
 									[default: median of event onset to event onset]
-		- intResampNum: integer, number of resamplings (default: 50)
+		- intResampNum: integer, number of resamplings (default: 100)
 		- intPlot: integer, plotting switch (0=none, 1=inst. rate only, 2=traces only, 3=raster plot as well, 4=adds latencies in raster plot) (default: 0)
-		- intLatencyPeaks: integer, maximum number of latency peaks to return (1-4) (default: 4)
+		- intLatencyPeaks: integer, maximum number of latency peaks to return (1-4) (default: 2)
 		- vecRestrictRange: temporal range within which to restrict onset/peak latencies (default: [-inf inf])
 		- boolVerbose: boolean, switch to print progress messages (default: false)
 	
@@ -162,7 +162,7 @@ def getZeta(vecSpikeTimes, matEventTimes, dblUseMaxDur=None, intResampNum=50, in
 		## get random subsample
 		### vecStimUseOnTime = vecEventStarts(:,1) + 2*dblUseMaxDur*(rand(size(vecEventStarts(:,1)))-0.5);
 		vecStimUseOnTime = vecEventStarts + \
-			2*dblUseMaxDur*(np.random.rand(len(vecEventStarts))-0.5)
+			2*dblUseMaxDur*((np.random.rand(len(vecEventStarts))-0.5)*2)
 		
 		# get temp offset
 		(vecRandDiff,vecRandFrac,vecRandFracLinear) = \
