@@ -58,10 +58,10 @@ def runExampleZETA():
 
 
 	print('Default parameters')
-	print('Matlab: ZetaP from default parameters: 8.8352e-06')
+	print('Matlab: ZetaP from default parameters: 1.4974e-05')
 	print('Python: ZetaP from default parameters: ', dblZetaP)
-	print('Matlab: vecLatencies = 0.0710 0.2730 0.0548 0.0507')
-	print('Python: vecLatencies', vecLatencies)
+	print('Matlab: vecLatencies = [0.0710 0.2730]')
+	print('Python: vecLatencies = ', vecLatencies)
 
 	# (vecMSD,sMSD) = zetapy.getIFR(vecSpikeTimes,matEventTimes)
 
@@ -80,10 +80,10 @@ def runExampleZETA():
 	(dblZetaP, vecLatencies, sZETA, sRate) = zetapy.getZeta(vecSpikeTimes,matEventTimes,dblUseMaxDur,intResampNum,intPlot,intLatencyPeaks,vecRestrictRange,boolVerbose)
 	
 	print('Specified parameters')
-	print("Matlab: ZetaP from specified parameters: 3.779e-06")
+	print("Matlab: ZetaP from specified parameters: 2.0095e-06")
 	print('ZetaP from specified parameters: ', dblZetaP)
-	print('Matlab: vecLatencies = 0.0710 0.2730 0.0548 0.0507')
-	print('Python: vecLatencies', vecLatencies)
+	print('Matlab: vecLatencies = [0.0710 0.2730 0.0548 0.0507]')
+	print('Python: vecLatencies = ', vecLatencies)
 
 	return dblZetaP, vecLatencies, sZETA, sRate
 
