@@ -83,6 +83,7 @@ def getZeta(vecSpikeTimes, matEventTimes, dblUseMaxDur=None, intResampNum=100, i
 	
 	Version history:
 	2.5 - 17 June 2020 Jorrit Montijn, translated to python by Alexander Heimel
+	2.5.1 - 18 February 2022 Bugfix by Guido Meijer of 1D matEventTimes
 	"""
 
 	## prep data
@@ -97,10 +98,12 @@ def getZeta(vecSpikeTimes, matEventTimes, dblUseMaxDur=None, intResampNum=100, i
 	###		matEventTimes = matEventTimes';
 	### end
 	# ensure matEventTimes is a N x 2 array
-	if np.shape(matEventTimes)[1] > 2:
-		matEventTimes = np.transpose(matEventTimes)
-	if np.shape(matEventTimes)[1] == 2:
+	if len(matEventTimes.shape) > 1:
 		boolStopSupplied = True
+		if np.shape(matEventTimes)[1] > 2:
+			matEventTimes = np.transpose(matEventTimes)
+	else:
+		matEventTimes = np.vstack((matEventTimes, np.zeros(matEventTimes.shape))).T
 	
 	# trial dur
 	### if ~exist('dblUseMaxDur','var') || isempty(dblUseMaxDur)
