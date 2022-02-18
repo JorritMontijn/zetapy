@@ -19,7 +19,7 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 	Required input:
 		- vecT [N x 1]: timestamps (e.g., spike times)
 		- vecV [N x 1]: values (e.g., z-scores)
-	
+
 	Optional inputs:
 		- intSmoothSd: Gaussian SD of smoothing kernel (in # of samples) [default: 0]
 		- dblMinScale: minimum derivative scale in seconds [default: 1/1000]
@@ -27,7 +27,7 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 		- intPlot: integer, plotting switch (0=none, 1=plot rates, 2=subplot 5&6 of [2 3]) [default: 0]
 		- dblMeanRate: mean spiking rate to normalize vecRate (optional)
 		- dblUseMaxDur: trial duration to normalize vecRate (optional)
-	
+
 	Outputs:
 		- vecRate; Instantaneous spiking rate
 		- sMSD; structure with fields:
@@ -37,10 +37,10 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 			- vecScale; timescales used to calculate derivatives
 			- matMSD; multi-scale derivatives matrix
 			- vecV; values on which vecRate is calculated (same as input vecV)
-	
+
 	Version history:
 	%1.1 - June 18, 2020 created by Jorrit Montijn, translated to python by Alexander Heimel
-	"""	
+	"""
 
 	## set default values
 	if dblMinScale==None:
@@ -48,7 +48,7 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 
 	if dblUseMaxDur == None:
 		dblUseMaxDur = np.max(vecT) - np.min(vecT)
-	
+
 	## reorder just in case
 	### [vecT,vecReorder] = sort(vecT(:),'ascend');
 	### vecV = vecV(vecReorder);
@@ -60,7 +60,7 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 	## prepare data
 	dblMaxScale = log(np.max(vecT)/10) / log(dblBase)
 	intN = len(vecT)
-	
+
 	## get multi-scale derivative
 	### vecExp = dblMinScale:dblMaxScale;
 	vecExp = np.arange(dblMinScale,dblMaxScale+1)
@@ -68,11 +68,11 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 	intScaleNum = len(vecScale)
 	matMSD = np.zeros( (intN,intScaleNum) )
 
-	logging.warning('Loop parallelization is not yet translated to python.')
+	#logging.warning('Loop parallelization is not yet translated to python.')
 	# try %try parallel
 	# 	parfor intScaleIdx=1:intScaleNum
 	# 		dblScale = vecScale(intScaleIdx);
-			
+
 	# 		%run through all points
 	# 		for intS=1:intN
 	# 			%select points within window
@@ -86,7 +86,7 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 		for intS in range(intN):
 			# select points within window
 			matMSD[intS,intScaleIdx] = getD(dblScale, intS, intN, vecT, vecV)
-	
+
 	## smoothing
 	if intSmoothSd > 0:
 		### vecFilt = normpdf(-2*(intSmoothSd):2*intSmoothSd,0,intSmoothSd)';
@@ -96,7 +96,7 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 		### matMSD = padarray(matMSD,floor(size(vecFilt)/2),'replicate');
 		x = int(np.floor(len(vecFilt)/2))
 		matMSD = np.pad(matMSD,( (x,x),(0,0)),'edge')
-		
+
 		# filter
 		### matMSD = conv2(matMSD,vecFilt,'valid');
 		matMSD = convolve2d(matMSD, np.transpose([vecFilt]), 'valid')
@@ -104,15 +104,15 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 	# mean
 	### vecM = mean(matMSD,2);
 	vecM = np.mean(matMSD,1)
-	
+
 	# weighted average of vecM by inter-spike intervals
 	### dblMeanM = (1/dblUseMaxDur) * sum(((vecM(1:(end-1)) + vecM(2:end))/2).*diff(vecT));
 	dblMeanM = (1/dblUseMaxDur) * sum(((vecM[:-1] + vecM[1:])/2) * np.diff(vecT))
-	
+
 	# rescale to real firing rates
 	### vecRate = dblMeanRate * ((vecM + 1/dblUseMaxDur)/(dblMeanM + 1/dblUseMaxDur));
 	vecRate = dblMeanRate * ((vecM + 1/dblUseMaxDur) / (dblMeanM + 1/dblUseMaxDur))
-		
+
 	## plot
 	if intPlot == 1:
 		logging.warning('Plot not translated to python version yet')
@@ -131,7 +131,7 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 	elseif intPlot > 1
 		if intSmoothSd > 0:
 			strTitle = 'Smoothed MSDs'
-		else: 
+		else:
 			strTitle = 'MSDs'
 		subplot(2,3,5);
 		imagesc(matMSD');
@@ -141,7 +141,7 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 		title(strTitle);
 		fixfig
 		grid off
-		
+
 		subplot(2,3,6);
 		if numel(vecT) > 10000
 			vecSubset = round(linspace(1,numel(vecT),10000));
@@ -177,7 +177,7 @@ def getD(dblScale,intS,intN,vecT,vecV):
 	### end
 	intIdxMinT = np.where(vecT > dblMinEdge)[0]
 	if len(intIdxMinT) > 0:
-		intIdxMinT = intIdxMinT[0] 
+		intIdxMinT = intIdxMinT[0]
 	else:
 		intIdxMinT = 0
 
@@ -194,7 +194,7 @@ def getD(dblScale,intS,intN,vecT,vecV):
 	### if intIdxMinT == intIdxMaxT && intIdxMinT > 1
 	### 	intIdxMinT=intIdxMaxT-1
 	### end
-	if intIdxMinT == intIdxMaxT and intIdxMinT > 0 : 
+	if intIdxMinT == intIdxMaxT and intIdxMinT > 0 :
 		intIdxMinT = intIdxMaxT-1
 
 	### dbl_dT = max([dblScale (vecT(intIdxMaxT) - vecT(intIdxMinT))]);
