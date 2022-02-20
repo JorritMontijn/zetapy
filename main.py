@@ -1,7 +1,7 @@
 import scipy.io
 import numpy as np
 import time
-import logging 
+import logging
 import math
 from zetapy import msd
 from scipy import stats
@@ -9,23 +9,23 @@ from zetapy.msd import MSD
 from zetapy.dependencies import flatten, getTempOffset, getGumbel, getPeak, getOnset
 
 class Zeta:
-	def __init__(self,dblZETA,boolStopSupplied):
-		self.dblZETA = dblZETA
-		self.dblD = 0
-		self.dblP = 1
-		self.dblPeakT = np.nan
-		self.intPeakIdx = []
-		if boolStopSupplied: 
-			self.dblMeanD = 0
-			self.dblMeanP = 1
-		self.vecSpikeT = []
-		self.vecD = []
-		self.matRandD = []
-		self.dblD_InvSign = 0
-		self.dblPeakT_InvSign = np.nan
-		self.intPeakIdx_InvSign = []
-		self.dblUseMaxDur = np.nan
-		self.vecLatencyVals = []
+    def __init__(self,dblZETA,boolStopSupplied):
+        self.dblZETA = dblZETA
+        self.dblD = 0
+        self.dblP = 1
+        self.dblPeakT = np.nan
+        self.intPeakIdx = []
+        if boolStopSupplied:
+            self.dblMeanD = 0
+            self.dblMeanP = 1
+        self.vecSpikeT = []
+        self.vecD = []
+        self.matRandD = []
+        self.dblD_InvSign = 0
+        self.dblPeakT_InvSign = np.nan
+        self.intPeakIdx_InvSign = []
+        self.dblUseMaxDur = np.nan
+        self.vecLatencyVals = []
 
 
 def getZeta(vecSpikeTimes, matEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=0,
@@ -408,74 +408,74 @@ def getZeta(vecSpikeTimes, matEventTimes, dblUseMaxDur=None, intResampNum=100, i
 
 
 def getIFR(vecSpikeTimes,vecEventStarts,dblUseMaxDur=None,intSmoothSd=5,dblMinScale=None,dblBase=1.5,intPlot=0,boolVerbose=True):
-	"""Returns multi-scale derivative. Syntax:
-	   [vecMSD,sMSSD] = getMultiScaleSpikeDeriv(vecSpikeTimes,vecEventStarts,dblUseMaxDur,intSmoothSd,dblMinScale,dblBase,intPlot,boolVerbose)
-	Required input:
-		- vecSpikeTimes [S x 1]: spike times (s)
-		- vecEventStarts [T x 1]: event on times (s), or [T x 2] including event off times
-		- dblUseMaxDur: float (s), ignore all spikes beyond this duration after stimulus onset
-									[default: median of trial start to trial start]
-	
-	Optional inputs:
-		- intSmoothSd: Gaussian SD of smoothing kernel (in # of bins) [default: 3]
-		- dblMinScale: minimum derivative scale in seconds [default: 1/1000]
-		- dblBase: critical value for locally dynamic derivative [default: 4]
-		- intPlot: integer, plotting switch (0=none, 1=plot)
-		- boolVerbose: boolean, switch to print messages
-	
-	Outputs:
-		- vecMSprime; Multi-scale derivative
-		- sMSSD; structure with fields:
-			- vecMSD;
-			- vecSpikeT;
-			- vecFracs;
-			- vecLinear; 
-			- vecDiff; 
-			- vecScale; 
-			- matSmoothMSprime; 
-			- matMSprime;
-	
-	Version history:
-	1.0 - June 24, 2020 Created by Jorrit Montijn, translated to python by Alexander Heimel
-	"""
+    """Returns multi-scale derivative. Syntax:
+       [vecMSD,sMSSD] = getMultiScaleSpikeDeriv(vecSpikeTimes,vecEventStarts,dblUseMaxDur,intSmoothSd,dblMinScale,dblBase,intPlot,boolVerbose)
+    Required input:
+        - vecSpikeTimes [S x 1]: spike times (s)
+        - vecEventStarts [T x 1]: event on times (s), or [T x 2] including event off times
+        - dblUseMaxDur: float (s), ignore all spikes beyond this duration after stimulus onset
+                                    [default: median of trial start to trial start]
 
-	if dblMinScale==None:
-		dblMinScale = round(np.log(1/1000) / np.log(dblBase))
+    Optional inputs:
+        - intSmoothSd: Gaussian SD of smoothing kernel (in # of bins) [default: 3]
+        - dblMinScale: minimum derivative scale in seconds [default: 1/1000]
+        - dblBase: critical value for locally dynamic derivative [default: 4]
+        - intPlot: integer, plotting switch (0=none, 1=plot)
+        - boolVerbose: boolean, switch to print messages
 
-	if dblUseMaxDur == None:
-		dblUseMaxDur = np.median(np.diff(vecEventStarts[:,0]))
-	
-	## prepare normalized spike times
-	# pre-allocate
-	intMaxRep = np.shape(vecEventStarts)[0] 
-	cellSpikeTimesPerTrial = [None] * intMaxRep
-	
-	# go through trials to build spike time vector
-	for intEvent in range(intMaxRep): 
-		# get times
-		dblStartT = vecEventStarts[intEvent,0]
-		dblStopT = dblStartT + dblUseMaxDur
-		
-		# build trial assignment
-		### cellSpikeTimesPerTria{intEvent} = vecSpikeTimes(vecSpikeTimes < dblStopT & vecSpikeTimes > dblStartT) - dblStartT;
-		cellSpikeTimesPerTrial[intEvent] = vecSpikeTimes[ (vecSpikeTimes < dblStopT) & (vecSpikeTimes > dblStartT)] - dblStartT
-	
-	# get spikes in fold
-	vecSpikeT = np.array(sorted(flatten(cellSpikeTimesPerTrial)))
-	
-	## get difference from uniform
-	vecFracs = np.linspace(0,1,len(vecSpikeT))
-	vecLinear = vecSpikeT / np.max(vecSpikeT)
-	vecDiff = vecFracs - vecLinear
-	vecDiff = vecDiff - np.mean(vecDiff)
-	
-	## get multi-scale derivative
-	(vecMSD,sMSD) = msd.getMultiScaleDeriv(vecSpikeT,vecDiff,intSmoothSd,dblMinScale,dblBase,intPlot)
-	
-	sMSD.vecSpikeT = vecSpikeT
-	sMSD.vecFracs = vecFracs
-	sMSD.vecLinear = vecLinear
-	sMSD.vecDiff = vecDiff
+    Outputs:
+        - vecMSprime; Multi-scale derivative
+        - sMSSD; structure with fields:
+            - vecMSD;
+            - vecSpikeT;
+            - vecFracs;
+            - vecLinear;
+            - vecDiff;
+            - vecScale;
+            - matSmoothMSprime;
+            - matMSprime;
 
-	return vecMSD,sMSD
+    Version history:
+    1.0 - June 24, 2020 Created by Jorrit Montijn, translated to python by Alexander Heimel
+    """
+
+    if dblMinScale==None:
+        dblMinScale = round(np.log(1/1000) / np.log(dblBase))
+
+    if dblUseMaxDur == None:
+        dblUseMaxDur = np.median(np.diff(vecEventStarts[:,0]))
+
+    ## prepare normalized spike times
+    # pre-allocate
+    intMaxRep = np.shape(vecEventStarts)[0]
+    cellSpikeTimesPerTrial = [None] * intMaxRep
+
+    # go through trials to build spike time vector
+    for intEvent in range(intMaxRep):
+        # get times
+        dblStartT = vecEventStarts[intEvent,0]
+        dblStopT = dblStartT + dblUseMaxDur
+
+        # build trial assignment
+        ### cellSpikeTimesPerTria{intEvent} = vecSpikeTimes(vecSpikeTimes < dblStopT & vecSpikeTimes > dblStartT) - dblStartT;
+        cellSpikeTimesPerTrial[intEvent] = vecSpikeTimes[ (vecSpikeTimes < dblStopT) & (vecSpikeTimes > dblStartT)] - dblStartT
+
+    # get spikes in fold
+    vecSpikeT = np.array(sorted(flatten(cellSpikeTimesPerTrial)))
+
+    ## get difference from uniform
+    vecFracs = np.linspace(0,1,len(vecSpikeT))
+    vecLinear = vecSpikeT / np.max(vecSpikeT)
+    vecDiff = vecFracs - vecLinear
+    vecDiff = vecDiff - np.mean(vecDiff)
+
+    ## get multi-scale derivative
+    (vecMSD,sMSD) = msd.getMultiScaleDeriv(vecSpikeT,vecDiff,intSmoothSd,dblMinScale,dblBase,intPlot)
+
+    sMSD.vecSpikeT = vecSpikeT
+    sMSD.vecFracs = vecFracs
+    sMSD.vecLinear = vecLinear
+    sMSD.vecDiff = vecDiff
+
+    return vecMSD,sMSD
 
