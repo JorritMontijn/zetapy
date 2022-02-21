@@ -46,7 +46,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     -------
     dblZetaP : float
         p-value based on Zenith of Event-based Time-locked Anomalies
-    arrLatencies : 1D array (or float if only one latency is returned)
+    arrLatencies : 1D array
         different latency estimates, number determined by intLatencyPeaks.
         If no peaks are detected, it returns NaNs
             1) Latency of ZETA
@@ -91,7 +91,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     Version history:
     2.5 - 17 June 2020 Jorrit Montijn, translated to python by Alexander Heimel
     2.5.1 - 18 February 2022 Bugfix by Guido Meijer of 1D arrEventTimes
-    2.6 - 20 February 2022 Rewrite of python code by Guido Meijer
+    2.6 - 20 February 2022 Refactoring of python code by Guido Meijer
     """
 
     # ensure arrEventTimes is a N x 2 array
@@ -125,7 +125,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
                                                          & (arrSpikeTimes > dblStartT)] - dblStartT
 
     # get spikes in fold
-    vecSpikeT = np.array(sorted(flatten([0,cellSpikeTimesPerTrial,dblUseMaxDur])))
+    vecSpikeT = np.array(sorted(flatten([0,cellSpikeTimesPerTrial, dblUseMaxDur])))
     intSpikes = vecSpikeT.shape[0]
 
     ## run normal
@@ -134,12 +134,8 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
 
     ## run bootstraps
     hTic = time.time()
-
-    ### matRandDiff = nan(intSpikes,intResampNum);
-    matRandDiff = np.empty((intSpikes,intResampNum))
-    matRandDiff[:] = np.NaN
-
-    ### for intResampling=1:intResampNum
+    matRandDiff = np.empty((intSpikes, intResampNum))
+    matRandDiff[:] = np.nan
     for intResampling in range(intResampNum):
         ## msg
         if boolVerbose and ((time.time()-hTic) > 5):
@@ -175,12 +171,11 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
             return dblZetaP, arrLatencies
 
     # find highest peak and retrieve value
-    ### vecMaxRandD = max(abs(matRandDiff),[],1);
-    vecMaxRandD = np.max(abs(matRandDiff),0)
+    vecMaxRandD = np.max(np.abs(matRandDiff), 0)
     dblRandMu = np.mean(vecMaxRandD)
-    dblRandVar = np.var(vecMaxRandD,ddof=1)
-    intZETALoc = np.argmax(abs(vecRealDiff))
-    dblPosD = np.max(abs(vecRealDiff)) # Can be combined with line above
+    dblRandVar = np.var(vecMaxRandD, ddof=1)
+    intZETALoc = np.argmax(np.abs(vecRealDiff))
+    dblPosD = np.max(np.abs(vecRealDiff)) # Can be combined with line above
 
     # get location
     dblMaxDTime = vecSpikeT[intZETALoc]
@@ -192,18 +187,15 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     dblZetaP, dblZETA = getGumbel(dblRandMu, dblRandVar, dblPosD)
 
     # find peak of inverse sign
-    ### [dummy,intPeakLocInvSign] = max(-sign(dblD)*vecRealDiff);
     intPeakLocInvSign = np.argmax(-np.sign(dblD)*vecRealDiff)
     dblMaxDTimeInvSign = vecSpikeT[intPeakLocInvSign]
     dblD_InvSign = vecRealDiff[intPeakLocInvSign]
 
     if boolStopSupplied:
         ## calculate mean-rate difference
-        # pre-allocate
         vecEventStops = arrEventTimes[:,1]
         vecStimHz = np.zeros(intMaxRep)
         vecBaseHz = np.zeros(intMaxRep)
-        ### dblMedianBaseDur = median(arrEventStarts(2:end) - vecEventStops(1:(end-1)));
         dblMedianBaseDur = np.median(arrEventStarts[1:] - vecEventStops[0:-1])
 
         # go through trials to build spike time vector
@@ -214,11 +206,13 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
             dblPreT = dblStartT - dblMedianBaseDur
 
             # build trial assignment
-            vecStimHz[intEvent] = sum( (arrSpikeTimes < dblStopT) & (arrSpikeTimes > dblStartT) ) / (dblStopT - dblStartT)
-            vecBaseHz[intEvent] = sum( (arrSpikeTimes < dblStartT) & (arrSpikeTimes > dblPreT) ) / dblMedianBaseDur
+            vecStimHz[intEvent] = (np.sum((arrSpikeTimes < dblStopT) & (arrSpikeTimes > dblStartT))
+                                   / (dblStopT - dblStartT))
+            vecBaseHz[intEvent] = (np.sum((arrSpikeTimes < dblStartT) & (arrSpikeTimes > dblPreT))
+                                   / dblMedianBaseDur)
 
         # get metrics
-        dblMeanD = np.mean(vecStimHz - vecBaseHz) / ( (np.std(vecStimHz) + np.std(vecBaseHz))/2)
+        dblMeanD = np.mean(vecStimHz - vecBaseHz) / ((np.std(vecStimHz) + np.std(vecBaseHz)) / 2)
         dblMeanP = stats.ttest_rel(vecStimHz, vecBaseHz)
 
     ## plot
@@ -297,7 +291,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         dRate = None
 
     ## calculate MSD statistics
-    if dRate != None and intLatencyPeaks > 0:
+    if dRate is not None and intLatencyPeaks > 0:
         # get MSD peak
         (dblPeakRate, dblPeakTime, dblPeakWidth, vecPeakStartStop,
          intPeakLoc, vecPeakStartStopIdx) = getPeak(vecRate, vecSpikeT, tplRestrictRange)
@@ -313,14 +307,16 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
             # assign array data
             if intLatencyPeaks > 3:
                 # get onset
-                (dblOnset,dblOnsetVal) = getOnset(vecRate,vecSpikeT,dblPeakTime,tplRestrictRange)[:2]
+                dblOnset, dblOnsetVal = getOnset(vecRate, vecSpikeT, dblPeakTime, tplRestrictRange)[:2]
                 dRate.dblOnset = dblOnset
                 arrLatencies = np.array([dblMaxDTime, dblMaxDTimeInvSign, dblPeakTime, dblOnset])
-                vecLatencyVals = np.array([vecRate[intZETALoc], vecRate[intPeakLocInvSign], vecRate[intPeakLoc], dblOnsetVal])
+                vecLatencyVals = np.array([vecRate[intZETALoc], vecRate[intPeakLocInvSign],
+                                           vecRate[intPeakLoc], dblOnsetVal])
             else:
                 dRate['dblOnset'] = np.nan
                 arrLatencies = np.array([dblMaxDTime, dblMaxDTimeInvSign, dblPeakTime])
-                vecLatencyVals = np.array([vecRate[intZETALoc], vecRate[intPeakLocInvSign], vecRate[intPeakLoc]])
+                vecLatencyVals = np.array([vecRate[intZETALoc], vecRate[intPeakLocInvSign],
+                                           vecRate[intPeakLoc]])
             arrLatencies = arrLatencies[0:intLatencyPeaks]
             vecLatencyVals = vecLatencyVals[0:intLatencyPeaks]
             if intPlot > 0:
@@ -360,10 +356,6 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     else:
         arrLatencies = []
         vecLatencyVals = []
-
-    # if only one latency is requested, turn array into float
-    if arrLatencies.shape[0] == 1:
-        arrLatencies = arrLatencies[0]
 
     ## build optional output dictionary
     dZETA = dict()
@@ -427,7 +419,7 @@ def getIFR(arrSpikeTimes, arrEventStarts, dblUseMaxDur=None, intSmoothSd=5, dblM
     """
 
     if dblMinScale==None:
-        dblMinScale = round(np.log(1/1000) / np.log(dblBase))
+        dblMinScale = np.round(np.log(1/1000) / np.log(dblBase))
 
     if dblUseMaxDur == None:
         dblUseMaxDur = np.median(np.diff(arrEventStarts[:,0]))
@@ -451,13 +443,13 @@ def getIFR(arrSpikeTimes, arrEventStarts, dblUseMaxDur=None, intSmoothSd=5, dblM
     vecSpikeT = np.array(sorted(flatten(cellSpikeTimesPerTrial)))
 
     ## get difference from uniform
-    vecFracs = np.linspace(0,1,len(vecSpikeT))
+    vecFracs = np.linspace(0, 1, vecSpikeT.shape[0])
     vecLinear = vecSpikeT / np.max(vecSpikeT)
     vecDiff = vecFracs - vecLinear
     vecDiff = vecDiff - np.mean(vecDiff)
 
     ## get multi-scale derivative
-    (vecMSD,sMSD) = msd.getMultiScaleDeriv(vecSpikeT,vecDiff,intSmoothSd,dblMinScale,dblBase,intPlot)
+    vecMSD, sMSD = msd.getMultiScaleDeriv(vecSpikeT, vecDiff, intSmoothSd, dblMinScale, dblBase, intPlot)
 
     sMSD.vecSpikeT = vecSpikeT
     sMSD.vecFracs = vecFracs

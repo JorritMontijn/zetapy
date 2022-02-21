@@ -122,7 +122,7 @@ def getTempOffset(vecSpikeT,vecSpikeTimes,vecStimUseOnTime,dblUseMaxDur):
     return vecThisDiff, vecThisFrac, vecThisFracLinear
 
 
-def getPeak(vecData,vecT,vecRestrictRange=(-np.inf,np.inf),intSwitchZ=1):
+def getPeak(vecData, vecT, vecRestrictRange=(-np.inf,np.inf), intSwitchZ=1):
     """Returns highest peak time, width, and location. Syntax:
         [dblPeakValue,dblPeakTime,dblPeakWidth,vecPeakStartStop,intPeakLoc,vecPeakStartStopIdx] = getPeak(vecData,vecT,vecRestrictRange)
 
@@ -153,7 +153,7 @@ def getPeak(vecData,vecT,vecRestrictRange=(-np.inf,np.inf),intSwitchZ=1):
         vecDataZ = stats.zscore(vecData)
     elif intSwitchZ == 2:
         dblMu = np.mean(vecData[vecT<0.02])
-        vecDataZ = (vecData - dblMu)/np.std(vecData)
+        vecDataZ = (vecData - dblMu) / np.std(vecData)
     else:
         vecDataZ = vecData
 
