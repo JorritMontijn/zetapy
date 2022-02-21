@@ -157,63 +157,60 @@ def getPeak(vecData,vecT,vecRestrictRange=(-np.inf,np.inf),intSwitchZ=1):
     else:
         vecDataZ = vecData
 
-    # get most prominent positive peak times
-    ### (vecValsPos, vecLocsPos, vecWidthPos, vecPromsPos) = findpeaks(vecDataZ)
-    #scipy.signal.find_peaks(x, height=None, threshold=None, distance=None, prominence=None, width=None, wlen=None, rel_height=0.5, plateau_size=None)
-    (vecLocsPos, peakProps) = signal.find_peaks(vecDataZ, threshold=0, prominence=-np.inf)
+    # get most prominent POSITIVE peak times
+    vecLocsPos, peakProps = signal.find_peaks(vecDataZ, threshold=0, prominence=-np.inf)
     vecValsPos = vecDataZ[vecLocsPos]
     vecPromsPos = peakProps['prominences']
 
     # remove peaks outside window
-    ### indRemPeaks = vecT(vecLocsPos) < vecRestrictRange(1) | vecT(vecLocsPos) > vecRestrictRange(end);
-    ### vecValsPos(indRemPeaks) = [];
-    ### vecLocsPos(indRemPeaks) = [];
-    ### vecPromsPos(indRemPeaks) = [];
     indKeepPeaks = (vecT[vecLocsPos] >= vecRestrictRange[0]) & (vecT[vecLocsPos] <= vecRestrictRange[1])
-    vecValsPos = vecValsPos[indKeepPeaks]
-    vecLocsPos = vecLocsPos[indKeepPeaks]
-    vecPromsPos = vecPromsPos[indKeepPeaks]
 
-    # select peak
-    intPosIdx = np.argmax(vecValsPos)
-    dblMaxPosVal = vecValsPos[intPosIdx]
+    if np.sum(indKeepPeaks) == 0:
+        dblMaxPosVal = None
+    else:
+        # select peak
+        vecValsPos = vecValsPos[indKeepPeaks]
+        vecLocsPos = vecLocsPos[indKeepPeaks]
+        vecPromsPos = vecPromsPos[indKeepPeaks]
+        intPosIdx = np.argmax(vecValsPos)
+        dblMaxPosVal = vecValsPos[intPosIdx]
 
-    # get most prominent negative peak times
-    (vecLocsNeg, peakProps) = signal.find_peaks(-vecDataZ, threshold=0, prominence=-np.inf)
+    # get most prominent NEGATIVE peak times
+    vecLocsNeg, peakProps = signal.find_peaks(-vecDataZ, threshold=0, prominence=-np.inf)
     vecValsNeg = -vecDataZ[vecLocsNeg]
     vecPromsNeg = peakProps['prominences']
 
     # remove peaks outside window
-    ### indRemPeaks = vecT(vecLocsNeg) < vecRestrictRange(1) | vecT(vecLocsNeg) > vecRestrictRange(end);
-    ### vecValsNeg(indRemPeaks) = [];
-    ### vecLocsNeg(indRemPeaks) = [];
-    ### vecPromsNeg(indRemPeaks) = [];
     indKeepPeaks = (vecT[vecLocsNeg] >= vecRestrictRange[0]) & (vecT[vecLocsNeg] <= vecRestrictRange[1])
-    vecValsNeg = vecValsNeg[indKeepPeaks]
-    vecLocsNeg = vecLocsNeg[indKeepPeaks]
-    vecPromsNeg = vecPromsNeg[indKeepPeaks]
 
-    # select peak
-    ### [dblMaxNegVal,intNegIdx] = max(vecValsNeg);
-    intNegIdx = np.argmax(vecValsNeg)
-    dblMaxNegVal = vecValsNeg[intNegIdx]
+    if np.sum(indKeepPeaks) == 0:
+        dblMaxNegVal = None
+    else:
+        # select peak
+        vecValsNeg = vecValsNeg[indKeepPeaks]
+        vecLocsNeg = vecLocsNeg[indKeepPeaks]
+        vecPromsNeg = vecPromsNeg[indKeepPeaks]
+        intNegIdx = np.argmax(vecValsNeg)
+        dblMaxNegVal = vecValsNeg[intNegIdx]
 
-    if dblMaxPosVal == None and dblMaxNegVal == None :
+    if dblMaxPosVal is None and dblMaxNegVal is None :
         indPeakMembers = None
-    elif (dblMaxPosVal!=None and dblMaxNegVal==None) or (dblMaxPosVal!=None and (abs(dblMaxPosVal) >= abs(dblMaxNegVal))):
+    elif ((dblMaxPosVal is not None and dblMaxNegVal is None)
+          or (dblMaxPosVal is not None and (abs(dblMaxPosVal) >= abs(dblMaxNegVal)))):
         intIdx = intPosIdx
         intPeakLoc = vecLocsPos[intIdx]
         dblPeakProm = vecPromsPos[intIdx]
-        dblCutOff = vecDataZ[intPeakLoc] - dblPeakProm/2
+        dblCutOff = vecDataZ[intPeakLoc] - dblPeakProm / 2
         indPeakMembers = (vecDataZ > dblCutOff)
-    elif (dblMaxPosVal == None and dblMaxNegVal!=None) or (dblMaxNegVal!=None and (abs(dblMaxPosVal) < abs(dblMaxNegVal))):
+    elif ((dblMaxPosVal is None and dblMaxNegVal is not None)
+          or (dblMaxNegVal is not None and (abs(dblMaxPosVal) < abs(dblMaxNegVal)))):
         intIdx = intNegIdx
         intPeakLoc = vecLocsNeg[intIdx]
         dblPeakProm = vecPromsNeg[intIdx]
-        dblCutOff = vecDataZ[intPeakLoc] + dblPeakProm/2
+        dblCutOff = vecDataZ[intPeakLoc] + dblPeakProm / 2
         indPeakMembers = (vecDataZ < dblCutOff)
 
-    if len(indPeakMembers)>0:
+    if indPeakMembers is not None:
         # get potential starts/stops
         ### vecPeakStarts = find(diff(indPeakMembers)==1);
         vecPeakStarts = np.where(np.diff([float(f) for f in indPeakMembers])==1)[0]
@@ -233,7 +230,7 @@ def getPeak(vecData,vecT,vecRestrictRange=(-np.inf,np.inf),intSwitchZ=1):
         intPeakStart = intPeakLoc - np.min(intPeakLoc - vecPeakStarts[vecPeakStarts<intPeakLoc])
         intPeakStop = intPeakLoc + np.min(vecPeakStops[vecPeakStops>=intPeakLoc] - intPeakLoc)
         dblPeakStartT = vecT[intPeakStart]
-        if intPeakStop > vecT.shape[0]:
+        if intPeakStop >= vecT.shape[0]:
             intPeakStop = vecT.shape[0] - 1
         dblPeakStopT = vecT[intPeakStop]
         # assign peak data

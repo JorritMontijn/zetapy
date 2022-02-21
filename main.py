@@ -1,11 +1,9 @@
-import scipy.io
 import numpy as np
 import time
 import logging
 import math
 from zetapy import msd
 from scipy import stats
-from zetapy.msd import MSD
 from zetapy.dependencies import flatten, getTempOffset, getGumbel, getPeak, getOnset
 
 
@@ -14,12 +12,10 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
             boolReturnRate=False, boolReturnZETA=False, boolVerbose=False):
     """
     Calculates neuronal responsiveness index ZETA.
-    
+
     Montijn, J.S., Seignette, K., Howlett, M.H., Cazemier, J.L., Kamermans, M., Levelt, C.N.,
     and Heimel, J.A. (2021). A parameter-free statistical test for neuronal responsiveness.
     eLife 10, e71969.
-
-    Original code by Jorrit Montijn, ported to python by Alexander Heimel & Guido Meijer
 
     Parameters
     ----------
@@ -48,130 +44,93 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
 
     Returns
     -------
-    TYPE
-        DESCRIPTION.
-
-    """
-    
-    
-    """Calculates neuronal responsiveness index zeta
-    syntax: [dblZetaP,vecLatencies,dZETA,sRate] = getZeta(arrSpikeTimes,arrEventStarts,dblUseMaxDur,intResampNum,intPlot,intLatencyPeaks,tplRestrictRange,boolVerbose)
-        input:
-        - arrSpikeTimes [S x 1]: spike times (in seconds)
-        - vecEventTimes [T x 1]: event on times (s), or [T x 2] including event off times to calculate mean-rate difference
-        - dblUseMaxDur: float (s), window length for calculating ZETA: ignore all spikes beyond this duration after event onset
-                                    [default: median of event onset to event onset]
-        - intResampNum: integer, number of resamplings (default: 100)
-        - intPlot: integer, plotting switch (0=none, 1=inst. rate only, 2=traces only, 3=raster plot as well, 4=adds latencies in raster plot) (default: 0)
-        - intLatencyPeaks: integer, maximum number of latency peaks to return (1-4) (default: 2)
-        - tplRestrictRange: temporal range within which to restrict onset/peak latencies (default: [-inf inf])
-        - boolVerbose: boolean, switch to print progress messages (default: false)
-    
-        output:
-        - dblZetaP; p-value based on Zenith of Event-based Time-locked Anomalies
-        - vecLatencies; different latency estimates, number determined by intLatencyPeaks. If no peaks are detected, it returns NaNs:
+    dblZetaP : float
+        p-value based on Zenith of Event-based Time-locked Anomalies
+    arrLatencies : 1D array (or float if only one latency is returned)
+        different latency estimates, number determined by intLatencyPeaks.
+        If no peaks are detected, it returns NaNs
             1) Latency of ZETA
             2) Latency of largest z-score with inverse sign to ZETA
             3) Peak time of instantaneous firing rate
             4) Onset time of above peak, defined as the first crossing of peak half-height
-        - dZETA; structure with fields:
-            - dblZETA; FDR-corrected responsiveness z-score (i.e., >2 is significant)
-            - dblD; temporal deviation value underlying ZETA
-            - dblP; p-value corresponding to ZETA
-            - dblPeakT; time corresponding to ZETA
-            - intPeakIdx; entry corresponding to ZETA
-            - dblMeanD; Cohen's D based on mean-rate stim/base difference
-            - dblMeanP; p-value based on mean-rate stim/base difference
-            - vecSpikeT: timestamps of spike times (corresponding to vecD)
-            - vecD; temporal deviation vector of data
-            - matRandD; baseline temporal deviation matrix of jittered data
-            - dblD_InvSign; largest peak of inverse sign to ZETA (i.e., -ZETA)
-            - dblPeakT_InvSign; time corresponding to -ZETA
-            - intPeakIdx_InvSign; entry corresponding to -ZETA
-            - dblUseMaxDur; window length used to calculate ZETA
-        - sRate; structure with fields: (only if intLatencyPeaks > 0)
-            - vecRate; instantaneous spiking rates (like a PSTH)
-            - vecT; time-points corresponding to vecRate (same as dZETA.vecSpikeT)
-            - vecM; Mean of multi-scale derivatives
-            - vecScale; timescales used to calculate derivatives
-            - matMSD; multi-scale derivatives matrix
-            - vecV; values on which vecRate is calculated (same as dZETA.vecZ)
+    dZETA : dict (optional)
+        additional parameters of ZETA test, return when using boolReturnZETA
+            dblZETA; FDR-corrected responsiveness z-score (i.e., >2 is significant)
+            dblD; temporal deviation value underlying ZETA
+            dblP; p-value corresponding to ZETA
+            dblPeakT; time corresponding to ZETA
+            intPeakIdx; entry corresponding to ZETA
+            dblMeanD; Cohen's D based on mean-rate stim/base difference
+            dblMeanP; p-value based on mean-rate stim/base difference
+            vecSpikeT: timestamps of spike times (corresponding to vecD)
+            vecD; temporal deviation vector of data
+            matRandD; baseline temporal deviation matrix of jittered data
+            dblD_InvSign; largest peak of inverse sign to ZETA (i.e., -ZETA)
+            dblPeakT_InvSign; time corresponding to -ZETA
+            intPeakIdx_InvSign; entry corresponding to -ZETA
+            dblUseMaxDur; window length used to calculate ZETA
+    dRate : dict (optional)
+        additional parameters of the firing rate, return with boolReturnRate
+            vecRate; instantaneous spiking rates (like a PSTH)
+            vecT; time-points corresponding to vecRate (same as dZETA.vecSpikeT)
+            vecM; Mean of multi-scale derivatives
+            vecScale; timescales used to calculate derivatives
+            matMSD; multi-scale derivatives matrix
+            vecV; values on which vecRate is calculated (same as dZETA.vecZ)
             Data on the peak:
-            - dblPeakTime; time of peak (in seconds)
-            - dblPeakWidth; duration of peak (in seconds)
-            - vecPeakStartStop; start and stop time of peak (in seconds)
-            - intPeakLoc; spike index of peak (corresponding to dZETA.vecSpikeT)
-            - vecPeakStartStopIdx; spike indices of peak start/stop (corresponding to dZETA.vecSpikeT)
-            Additionally, it will return peak onset latency (first crossing of peak half-height) using getOnset.m:
-            - dblOnset: latency for peak onset
-    
+            dblPeakTime; time of peak (in seconds)
+            dblPeakWidth; duration of peak (in seconds)
+            vecPeakStartStop; start and stop time of peak (in seconds)
+            intPeakLoc; spike index of peak (corresponding to dZETA.vecSpikeT)
+            vecPeakStartStopIdx; spike indices of peak start/stop (corresponding to dZETA.vecSpikeT)
+            Additionally, it will return peak onset latency (first crossing of peak half-height)
+            dblOnset: latency for peak onset
+
+    Original code by Jorrit Montijn, ported to python by Alexander Heimel & Guido Meijer
+
     Version history:
     2.5 - 17 June 2020 Jorrit Montijn, translated to python by Alexander Heimel
     2.5.1 - 18 February 2022 Bugfix by Guido Meijer of 1D arrEventTimes
     2.6 - 20 February 2022 Rewrite of python code by Guido Meijer
     """
 
-    ## prep data
-    # ensure orientation column vector
-    #arrSpikeTimes = arrSpikeTimes(:);
-    
-    # calculate stim/base difference?
-    boolStopSupplied = False
-    dblMeanD = np.nan
-
-    ### if size(arrEventTimes,2) > 2
-    ###        arrEventTimes = arrEventTimes';
-    ### end
     # ensure arrEventTimes is a N x 2 array
     if len(arrEventTimes.shape) > 1:
         boolStopSupplied = True
         if np.shape(arrEventTimes)[1] > 2:
             arrEventTimes = np.transpose(arrEventTimes)
     else:
+        boolStopSupplied = False
         arrEventTimes = np.vstack((arrEventTimes, np.zeros(arrEventTimes.shape))).T
-    
+
     # trial dur
-    ### if ~exist('dblUseMaxDur','var') || isempty(dblUseMaxDur)
-    ###     dblUseMaxDur = median(diff(arrEventTimes(:,1)));
-    ### end
-    if dblUseMaxDur==None:
+    if dblUseMaxDur is None:
         dblUseMaxDur = np.median(np.diff(arrEventTimes[:,0]))
-    
+
     ## build onset/offset vectors
-    ### arrEventStarts = arrEventTimes(:,1);
     arrEventStarts = arrEventTimes[:,0]
-    
+
     ## prepare interpolation points
-    # pre-allocate
-    ### intMaxRep = size(arrEventTimes,1);
-    ### cellSpikeTimesPerTrial = cell(intMaxRep,1);
-    intMaxRep = np.shape(arrEventTimes)[0] 
+    intMaxRep = np.shape(arrEventTimes)[0]
     cellSpikeTimesPerTrial = [None] * intMaxRep
 
     # go through trials to build spike time vector
-    ### for intEvent=1:intMaxRep
     for intEvent in range(intMaxRep):
         # get times
-        ###     dblStartT = arrEventStarts(intEvent,1);
         dblStartT = arrEventStarts[intEvent]
-        ###     dblStopT = dblStartT + dblUseMaxDur;
         dblStopT = dblStartT + dblUseMaxDur
-        
+
         # build trial assignment
-        ###    cellSpikeTimesPerTrial{intEvent} = arrSpikeTimes(arrSpikeTimes < dblStopT & arrSpikeTimes > dblStartT) - dblStartT;
-        cellSpikeTimesPerTrial[intEvent] = arrSpikeTimes[ (arrSpikeTimes < dblStopT) & (arrSpikeTimes > dblStartT)] - dblStartT
+        cellSpikeTimesPerTrial[intEvent] = arrSpikeTimes[(arrSpikeTimes < dblStopT)
+                                                         & (arrSpikeTimes > dblStartT)] - dblStartT
 
     # get spikes in fold
-    ### vecSpikeT = [0;sort(cell2vec(cellSpikeTimesPerTrial),'ascend');dblUseMaxDur];
     vecSpikeT = np.array(sorted(flatten([0,cellSpikeTimesPerTrial,dblUseMaxDur])))
-    ### intSpikes = numel(vecSpikeT);
-    intSpikes = len(vecSpikeT)
+    intSpikes = vecSpikeT.shape[0]
 
     ## run normal
-    # get data
-    ### [vecRealDiff,vecRealFrac,vecRealFracLinear] = ...
-    ###      getTempOffset(vecSpikeT,arrSpikeTimes,arrEventStarts(:,1),dblUseMaxDur);
-    (vecRealDiff, vecRealFrac, vecRealFracLinear) = getTempOffset(vecSpikeT,arrSpikeTimes,arrEventStarts,dblUseMaxDur)
+    vecRealDiff, vecRealFrac, vecRealFracLinear = getTempOffset(vecSpikeT, arrSpikeTimes,
+                                                                arrEventStarts, dblUseMaxDur)
 
     ## run bootstraps
     hTic = time.time()
@@ -184,40 +143,37 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     for intResampling in range(intResampNum):
         ## msg
         if boolVerbose and ((time.time()-hTic) > 5):
-            ### fprintf('Now at resampling %d/%d\n',intResampling,intResampNum);
             print('Now at resampling %d/%d' % (intResampling,intResampNum))
             hTic = time.time()
-        ## get random subsample
-        ### vecStimUseOnTime = arrEventStarts(:,1) + 2*dblUseMaxDur*(rand(size(arrEventStarts(:,1)))-0.5);
-        vecStimUseOnTime = arrEventStarts + \
-            2*dblUseMaxDur*((np.random.rand(len(arrEventStarts))-0.5)*2)
-        
-        # get temp offset
-        (vecRandDiff,vecRandFrac,vecRandFracLinear) = \
-            getTempOffset(vecSpikeT,arrSpikeTimes,vecStimUseOnTime,dblUseMaxDur)
-        
-        # assign data
-        ### matRandDiff(:,intResampling) = vecRandDiff - mean(vecRandDiff);
-        matRandDiff[:,intResampling] = vecRandDiff - np.mean(vecRandDiff)
-    
-    ## calculate measure of effect size (for equal n, d' equals Cohen's d)
-    if len(vecRealDiff) < 3:
-        dblZetaP = 1
-        dblZETA = 0
-        dZETA = []
-        vecLatencies = []
-        sRate = []
-        logging.warning('Insufficient samples to calculate zeta')
-        
-        # build placeholder outputs
-        if len(vecLatencies) < intLatencyPeaks:
-            ### vecLatencies(end+1:intLatencyPeaks) = NaN
-            vecLatencies.extend( [np.nan] *(len(vecLatencies) - intLatencyPeaks))
 
-        ### dZETA = struct;
-        dZETA = Zeta(dblZETA,boolStopSupplied)
-        return dblZetaP, vecLatencies, dZETA, sRate
-    
+        ## get random subsample
+        vecStimUseOnTime = (arrEventStarts + 2 * dblUseMaxDur
+                            * ((np.random.rand(arrEventStarts.shape[0]) - 0.5) * 2))
+
+        # get temp offset
+        vecRandDiff, vecRandFrac, vecRandFracLinear = getTempOffset(vecSpikeT, arrSpikeTimes,
+                                                                    vecStimUseOnTime, dblUseMaxDur)
+
+        # assign data
+        matRandDiff[:,intResampling] = vecRandDiff - np.mean(vecRandDiff)
+
+    ## calculate measure of effect size (for equal n, d' equals Cohen's d)
+    if (len(vecRealDiff) < 3) | (arrSpikeTimes.shape[0] < 10):
+        if boolVerbose:
+            logging.warning('Insufficient samples to calculate zeta')
+        dblZetaP = 1
+        arrLatencies = np.array([np.nan] * intLatencyPeaks)
+        dZETA = dict()
+        dRate = dict()
+        if (boolReturnZETA & boolReturnRate):
+            return dblZetaP, arrLatencies, dZETA, dRate
+        elif boolReturnZETA:
+            return dblZetaP, arrLatencies, dZETA
+        elif boolReturnRate:
+            return dblZetaP, arrLatencies, dRate
+        else:
+            return dblZetaP, arrLatencies
+
     # find highest peak and retrieve value
     ### vecMaxRandD = max(abs(matRandDiff),[],1);
     vecMaxRandD = np.max(abs(matRandDiff),0)
@@ -225,15 +181,16 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     dblRandVar = np.var(vecMaxRandD,ddof=1)
     intZETALoc = np.argmax(abs(vecRealDiff))
     dblPosD = np.max(abs(vecRealDiff)) # Can be combined with line above
-        
+
     # get location
     dblMaxDTime = vecSpikeT[intZETALoc]
     dblD = vecRealDiff[intZETALoc]
-    
+
     # calculate statistical significance using Gumbel distribution
-    print('Python: Gumbel %0.7f, %0.7f, %0.7f' % (dblRandMu,dblRandVar,dblPosD)) 
-    (dblZetaP,dblZETA) = getGumbel(dblRandMu,dblRandVar,dblPosD)
-    
+    if boolVerbose:
+        print('Python: Gumbel %0.7f, %0.7f, %0.7f' % (dblRandMu, dblRandVar, dblPosD))
+    dblZetaP, dblZETA = getGumbel(dblRandMu, dblRandVar, dblPosD)
+
     # find peak of inverse sign
     ### [dummy,intPeakLocInvSign] = max(-sign(dblD)*vecRealDiff);
     intPeakLocInvSign = np.argmax(-np.sign(dblD)*vecRealDiff)
@@ -248,21 +205,21 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         vecBaseHz = np.zeros(intMaxRep)
         ### dblMedianBaseDur = median(arrEventStarts(2:end) - vecEventStops(1:(end-1)));
         dblMedianBaseDur = np.median(arrEventStarts[1:] - vecEventStops[0:-1])
-        
+
         # go through trials to build spike time vector
         for intEvent in range(intMaxRep):
             # get times
             dblStartT = arrEventStarts[intEvent]
             dblStopT = dblStartT + dblUseMaxDur
             dblPreT = dblStartT - dblMedianBaseDur
-            
+
             # build trial assignment
             vecStimHz[intEvent] = sum( (arrSpikeTimes < dblStopT) & (arrSpikeTimes > dblStartT) ) / (dblStopT - dblStartT)
             vecBaseHz[intEvent] = sum( (arrSpikeTimes < dblStartT) & (arrSpikeTimes > dblPreT) ) / dblMedianBaseDur
-        
+
         # get metrics
         dblMeanD = np.mean(vecStimHz - vecBaseHz) / ( (np.std(vecStimHz) + np.std(vecBaseHz))/2)
-        dblMeanP = stats.ttest_rel(vecStimHz,vecBaseHz)
+        dblMeanP = stats.ttest_rel(vecStimHz, vecBaseHz)
 
     ## plot
     if intPlot > 1:
@@ -270,7 +227,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         """
         %plot maximally 50 traces
         intPlotIters = min([size(matRandDiff,2) 50]);
-        
+
         %make maximized figure
         figure
         drawnow;
@@ -278,7 +235,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         jFig.setMaximized(true);
         figure(gcf);
         drawnow;
-        
+
         if intPlot > 2
             subplot(2,3,1)
             plotRaster(arrSpikeTimes,arrEventStarts(:,1),dblUseMaxDur,10000);
@@ -288,7 +245,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
             fixfig;
             grid off;
         end
-        
+
         %plot
         subplot(2,3,2)
         sOpt = struct;
@@ -300,7 +257,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         xlabel('Time from event (s)');
         ylabel('Mean spiking rate (Hz)');
         fixfig
-        
+
         subplot(2,3,3)
         plot(vecSpikeT,vecRealFrac)
         hold on
@@ -309,7 +266,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         xlabel('Time from event (s)');
         ylabel('Fractional position of spike in trial');
         fixfig
-        
+
         subplot(2,3,4)
         cla;
         hold all
@@ -333,37 +290,38 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     ## calculate MSD if significant
     if intLatencyPeaks > 0:
         # get average of multi-scale derivatives, and rescaled to instantaneous spiking rate
-        dblMeanRate =  intSpikes / (dblUseMaxDur*intMaxRep)
-        (vecRate,sRate) = msd.getMultiScaleDeriv(vecSpikeT,vecRealDiff,intPlot = intPlot,dblMeanRate = dblMeanRate,dblUseMaxDur = dblUseMaxDur)
+        dblMeanRate =  intSpikes / (dblUseMaxDur * intMaxRep)
+        vecRate, dRate = msd.getMultiScaleDeriv(vecSpikeT, vecRealDiff, intPlot=intPlot,
+                                                dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur)
     else:
-        sRate = None
-    
+        dRate = None
+
     ## calculate MSD statistics
-    if sRate != None and intLatencyPeaks > 0:
+    if dRate != None and intLatencyPeaks > 0:
         # get MSD peak
-        (dblPeakRate, dblPeakTime, dblPeakWidth, vecPeakStartStop, intPeakLoc, 
-            vecPeakStartStopIdx) = getPeak(vecRate,vecSpikeT,tplRestrictRange)
-        
-        sRate.dblPeakRate = dblPeakRate
-        sRate.dblPeakTime = dblPeakTime
-        sRate.dblPeakWidth = dblPeakWidth
-        sRate.vecPeakStartStop = vecPeakStartStop
-        sRate.intPeakLoc = intPeakLoc
-        sRate.vecPeakStartStopIdx = vecPeakStartStopIdx
-                
+        (dblPeakRate, dblPeakTime, dblPeakWidth, vecPeakStartStop,
+         intPeakLoc, vecPeakStartStopIdx) = getPeak(vecRate, vecSpikeT, tplRestrictRange)
+
+        dRate['dblPeakRate'] = dblPeakRate
+        dRate['dblPeakTime'] = dblPeakTime
+        dRate['dblPeakWidth'] = dblPeakWidth
+        dRate['vecPeakStartStop'] = vecPeakStartStop
+        dRate['intPeakLoc'] = intPeakLoc
+        dRate['vecPeakStartStopIdx'] = vecPeakStartStopIdx
+
         if not math.isnan(dblPeakTime):
             # assign array data
             if intLatencyPeaks > 3:
                 # get onset
                 (dblOnset,dblOnsetVal) = getOnset(vecRate,vecSpikeT,dblPeakTime,tplRestrictRange)[:2]
-                sRate.dblOnset = dblOnset
-                vecLatencies = np.array([dblMaxDTime, dblMaxDTimeInvSign, dblPeakTime, dblOnset])
+                dRate.dblOnset = dblOnset
+                arrLatencies = np.array([dblMaxDTime, dblMaxDTimeInvSign, dblPeakTime, dblOnset])
                 vecLatencyVals = np.array([vecRate[intZETALoc], vecRate[intPeakLocInvSign], vecRate[intPeakLoc], dblOnsetVal])
             else:
-                sRate.dblOnset = [np.nan]
-                vecLatencies = np.array([dblMaxDTime, dblMaxDTimeInvSign, dblPeakTime])
+                dRate['dblOnset'] = np.nan
+                arrLatencies = np.array([dblMaxDTime, dblMaxDTimeInvSign, dblPeakTime])
                 vecLatencyVals = np.array([vecRate[intZETALoc], vecRate[intPeakLocInvSign], vecRate[intPeakLoc]])
-            vecLatencies = vecLatencies[0:intLatencyPeaks]
+            arrLatencies = arrLatencies[0:intLatencyPeaks]
             vecLatencyVals = vecLatencyVals[0:intLatencyPeaks]
             if intPlot > 0:
                 logging.warning('Plot not translated to python yet')
@@ -380,7 +338,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
                 end
                 hold off
                 fixfig;
-                
+
                 if intPlot > 3
                     vecHandles = get(gcf,'children');
                     ptrFirstSubplot = vecHandles(find(contains(get(vecHandles,'type'),'axes'),1,'last'));
@@ -396,21 +354,18 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
                 """
         else:
             #placeholder peak data
-            sRate.dblOnset = [np.nan]
-            vecLatencies = [np.nan] * 4
-            vecLatencyVals = [np.nan] * 4
+            dRate['dblOnset'] = np.nan
+            arrLatencies = np.array([np.nan] * intLatencyPeaks)
+            vecLatencyVals = np.array([np.nan] * intLatencyPeaks)
     else:
-        vecLatencies = []
+        arrLatencies = []
         vecLatencyVals = []
-    
-    # check number of latencies
-    if len(vecLatencies) < intLatencyPeaks:
-        ### vecLatencies(end+1:intLatencyPeaks) = nan;
-        vecLatencies.extend( [np.nan] * (intLatencyPeaks-len(vecLatencies)))
-        ### vecLatencyVals(end+1:intLatencyPeaks) = nan;
-        vecLatencyVals.extend( [np.nan] * (intLatencyPeaks-len(vecLatencies)))
-    
-    ## build optional output structure
+
+    # if only one latency is requested, turn array into float
+    if arrLatencies.shape[0] == 1:
+        arrLatencies = arrLatencies[0]
+
+    ## build optional output dictionary
     dZETA = dict()
     dZETA['dblD'] = dblD
     dZETA['dblP'] = dblZetaP
@@ -427,16 +382,19 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     dZETA['intPeakIdx_InvSign'] = intPeakLocInvSign
     dZETA['dblUseMaxDur'] = dblUseMaxDur
     dZETA['vecLatencyVals'] = vecLatencyVals
-    
+
     if (boolReturnZETA & boolReturnRate):
-        return dblZetaP, vecLatencies, sRate, dZETA
+        return dblZetaP, arrLatencies, dZETA, dRate
     elif boolReturnZETA:
-        return dblZetaP, vecLatencies, dZETA
+        return dblZetaP, arrLatencies, dZETA
     elif boolReturnRate:
-        return dblZetaP, vecLatencies, sRate
+        return dblZetaP, arrLatencies, dRate
+    else:
+        return dblZetaP, arrLatencies
 
 
-def getIFR(arrSpikeTimes,arrEventStarts,dblUseMaxDur=None,intSmoothSd=5,dblMinScale=None,dblBase=1.5,intPlot=0,boolVerbose=True):
+def getIFR(arrSpikeTimes, arrEventStarts, dblUseMaxDur=None, intSmoothSd=5, dblMinScale=None,
+           dblBase=1.5, intPlot=0, boolVerbose=True):
     """Returns multi-scale derivative. Syntax:
        [vecMSD,sMSSD] = getMultiScaleSpikeDeriv(arrSpikeTimes,arrEventStarts,dblUseMaxDur,intSmoothSd,dblMinScale,dblBase,intPlot,boolVerbose)
     Required input:
@@ -486,8 +444,8 @@ def getIFR(arrSpikeTimes,arrEventStarts,dblUseMaxDur=None,intSmoothSd=5,dblMinSc
         dblStopT = dblStartT + dblUseMaxDur
 
         # build trial assignment
-        ### cellSpikeTimesPerTria{intEvent} = arrSpikeTimes(arrSpikeTimes < dblStopT & arrSpikeTimes > dblStartT) - dblStartT;
-        cellSpikeTimesPerTrial[intEvent] = arrSpikeTimes[ (arrSpikeTimes < dblStopT) & (arrSpikeTimes > dblStartT)] - dblStartT
+        cellSpikeTimesPerTrial[intEvent] = arrSpikeTimes[(arrSpikeTimes < dblStopT)
+                                                         & (arrSpikeTimes > dblStartT)] - dblStartT
 
     # get spikes in fold
     vecSpikeT = np.array(sorted(flatten(cellSpikeTimesPerTrial)))
@@ -506,5 +464,5 @@ def getIFR(arrSpikeTimes,arrEventStarts,dblUseMaxDur=None,intSmoothSd=5,dblMinSc
     sMSD.vecLinear = vecLinear
     sMSD.vecDiff = vecDiff
 
-    return vecMSD,sMSD
+    return vecMSD, sMSD
 
