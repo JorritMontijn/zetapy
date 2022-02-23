@@ -4,16 +4,9 @@ from scipy.stats import norm
 from scipy.signal import convolve2d
 import numpy as np
 
-class MSD:
-	def __init__(self):
-		self.dblPeakRate = None
-		self.dblPeakTime = None
-		self.dblPeakWidth = None
-		self.vecPeakStartStop = None
-		self.intPeakLoc = None
-		self.vecPeakStartStopIdx = None
 
-def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intPlot=0,dblMeanRate=1,dblUseMaxDur=None):
+def getMultiScaleDeriv(vecT, vecV, intSmoothSd=0, dblMinScale=None, dblBase=1.5, intPlot=0,
+                       dblMeanRate=1, dblUseMaxDur=None):
 	"""Returns multi-scale derivative. Syntax:
 	   [vecRate,sMSD] = getMultiScaleDeriv(vecT,vecV,intSmoothSd,dblMinScale,dblBase,intPlot,dblMeanRate,dblUseMaxDur)
 	Required input:
@@ -156,13 +149,13 @@ def getMultiScaleDeriv(vecT,vecV,intSmoothSd=0,dblMinScale=None,dblBase=1.5,intP
 	"""
 
 	## build output
-	sMSD = MSD()
-	sMSD.vecRate = vecRate
-	sMSD.vecT = vecT
-	sMSD.vecM = vecM
-	sMSD.vecScale = vecScale
-	sMSD.matMSD = matMSD
-	sMSD.vecV = vecV
+	sMSD = dict()
+	sMSD['vecRate'] = vecRate
+	sMSD['vecT'] = vecT
+	sMSD['vecM'] = vecM
+	sMSD['vecScale'] = vecScale
+	sMSD['matMSD'] = matMSD
+	sMSD['vecV'] = vecV
 
 	return vecRate, sMSD
 
