@@ -1,7 +1,7 @@
-# ZETA
+# zetapy
 Repository containing ZETA functions and dependencies. For an example of how to use the code, check example.py. 
 
-Note on updates and maintenance: the original code is maintained in MATLAB (https://github.com/JorritMontijn/ZETA). This repository with the Python code is maintained by Guido Meijer (Python port by Alexander Heimel)
+Note on updates and maintenance: the original code is written and maintained in MATLAB by Jorrit Montijn (https://github.com/JorritMontijn/ZETA). This Python repository is maintained by Guido Meijer (original Python port by Alexander Heimel)
 
 The article describing ZETA has been published in eLife: https://elifesciences.org/articles/71969
  
