@@ -308,15 +308,15 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
             if intLatencyPeaks > 3:
                 # get onset
                 dblOnset, dblOnsetVal = getOnset(vecRate, vecSpikeT, dblPeakTime, tplRestrictRange)[:2]
-                dRate.dblOnset = dblOnset
+                dRate['dblOnset'] = dblOnset
                 arrLatencies = np.array([dblMaxDTime, dblMaxDTimeInvSign, dblPeakTime, dblOnset])
                 vecLatencyVals = np.array([vecRate[intZETALoc], vecRate[intPeakLocInvSign],
-                                           vecRate[intPeakLoc], dblOnsetVal])
+                                           vecRate[intPeakLoc], dblOnsetVal], dtype=object)
             else:
                 dRate['dblOnset'] = np.nan
                 arrLatencies = np.array([dblMaxDTime, dblMaxDTimeInvSign, dblPeakTime])
                 vecLatencyVals = np.array([vecRate[intZETALoc], vecRate[intPeakLocInvSign],
-                                           vecRate[intPeakLoc]])
+                                           vecRate[intPeakLoc]], dtype=object)
             arrLatencies = arrLatencies[0:intLatencyPeaks]
             vecLatencyVals = vecLatencyVals[0:intLatencyPeaks]
             if intPlot > 0:
