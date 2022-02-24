@@ -7,7 +7,7 @@ from scipy import stats
 from zetapy.dependencies import flatten, getTempOffset, getGumbel, getPeak, getOnset
 
 
-def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=False,
+def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=0,
             intLatencyPeaks=2, tplRestrictRange=(-np.inf,np.inf),
             boolReturnRate=False, boolReturnZETA=False, boolVerbose=False):
     """
