@@ -1,0 +1,11 @@
+LICENSE
+README.md
+setup.py
+zetapy/__init__.py
+zetapy/dependencies.py
+zetapy/main.py
+zetapy/msd.py
+zetapy.egg-info/PKG-INFO
+zetapy.egg-info/SOURCES.txt
+zetapy.egg-info/dependency_links.txt
+zetapy.egg-info/top_level.txt
