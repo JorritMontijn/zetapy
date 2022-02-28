@@ -460,10 +460,10 @@ def getIFR(arrSpikeTimes, arrEventStarts, dblUseMaxDur=None, intSmoothSd=5, dblM
     ## get multi-scale derivative
     vecMSD, sMSD = msd.getMultiScaleDeriv(vecSpikeT, vecDiff, intSmoothSd, dblMinScale, dblBase, intPlot)
 
-    sMSD.vecSpikeT = vecSpikeT
-    sMSD.vecFracs = vecFracs
-    sMSD.vecLinear = vecLinear
-    sMSD.vecDiff = vecDiff
+    sMSD['vecSpikeT'] = vecSpikeT
+    sMSD['vecFracs'] = vecFracs
+    sMSD['vecLinear'] = vecLinear
+    sMSD['vecDiff'] = vecDiff
 
     return vecMSD, sMSD
 
