@@ -7,7 +7,7 @@ from scipy import stats
 from zetapy.dependencies import flatten, getTempOffset, getGumbel, getPeak, getOnset
 
 
-def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=False,
+def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=0,
             intLatencyPeaks=2, tplRestrictRange=(-np.inf,np.inf),
             boolReturnRate=False, boolReturnZETA=False, boolVerbose=False):
     """
@@ -63,7 +63,10 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
             dblMeanD; Cohen's D based on mean-rate stim/base difference
             dblMeanP; p-value based on mean-rate stim/base difference
             vecSpikeT: timestamps of spike times (corresponding to vecD)
+            vecRealFrac; cumulative distribution of spike times
+            vecRealFracLinear; linear baseline of cumulative distribution
             vecD; temporal deviation vector of data
+            vecNoNormD; temporal deviation which is not mean subtracted
             matRandD; baseline temporal deviation matrix of jittered data
             dblD_InvSign; largest peak of inverse sign to ZETA (i.e., -ZETA)
             dblPeakT_InvSign; time corresponding to -ZETA
@@ -129,8 +132,11 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     intSpikes = vecSpikeT.shape[0]
 
     ## run normal
-    vecRealDiff, vecRealFrac, vecRealFracLinear = getTempOffset(vecSpikeT, arrSpikeTimes,
+    vecOrigDiff, vecRealFrac, vecRealFracLinear = getTempOffset(vecSpikeT, arrSpikeTimes,
                                                                 arrEventStarts, dblUseMaxDur)
+
+    # mean subtract difference
+    vecRealDiff = vecOrigDiff - np.mean(vecOrigDiff)
 
     ## run bootstraps
     hTic = time.time()
@@ -359,6 +365,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
 
     ## build optional output dictionary
     dZETA = dict()
+    dZETA['dblZeta'] = dblZETA
     dZETA['dblD'] = dblD
     dZETA['dblP'] = dblZetaP
     dZETA['dblPeakT'] = dblMaxDTime
@@ -367,13 +374,15 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         dZETA['dblMeanD'] = dblMeanD
         dZETA['dblMeanP'] = dblMeanP
     dZETA['vecSpikeT'] = vecSpikeT
+    dZETA['vecRealFrac'] = vecRealFrac
+    dZETA['vecRealFracLinear'] = vecRealFracLinear
     dZETA['vecD'] = vecRealDiff
+    dZETA['vecNoNormD'] = vecOrigDiff
     dZETA['matRandD'] = matRandDiff
     dZETA['dblD_InvSign'] = dblD_InvSign
     dZETA['dblPeakT_InvSign'] = dblMaxDTimeInvSign
     dZETA['intPeakIdx_InvSign'] = intPeakLocInvSign
     dZETA['dblUseMaxDur'] = dblUseMaxDur
-    dZETA['vecLatencyVals'] = vecLatencyVals
 
     if (boolReturnZETA & boolReturnRate):
         return dblZetaP, arrLatencies, dZETA, dRate
@@ -451,10 +460,10 @@ def getIFR(arrSpikeTimes, arrEventStarts, dblUseMaxDur=None, intSmoothSd=5, dblM
     ## get multi-scale derivative
     vecMSD, sMSD = msd.getMultiScaleDeriv(vecSpikeT, vecDiff, intSmoothSd, dblMinScale, dblBase, intPlot)
 
-    sMSD.vecSpikeT = vecSpikeT
-    sMSD.vecFracs = vecFracs
-    sMSD.vecLinear = vecLinear
-    sMSD.vecDiff = vecDiff
+    sMSD['vecSpikeT'] = vecSpikeT
+    sMSD['vecFracs'] = vecFracs
+    sMSD['vecLinear'] = vecLinear
+    sMSD['vecDiff'] = vecDiff
 
     return vecMSD, sMSD
 

@@ -72,7 +72,7 @@ def flatten(l):
         else:
             yield el
 
-def getTempOffset(vecSpikeT,vecSpikeTimes,vecStimUseOnTime,dblUseMaxDur):
+def getTempOffset(vecSpikeT, vecSpikeTimes, vecStimUseOnTime, dblUseMaxDur):
     """Calculate temporal offset vectors across folds and offsets.
 
     Syntax:
@@ -80,36 +80,22 @@ def getTempOffset(vecSpikeT,vecSpikeTimes,vecStimUseOnTime,dblUseMaxDur):
         getTempOffset(vecSpikeT,vecSpikeTimes,vecStimUseOnTime,dblUseMaxDur)
     """
 
-    ## get inputs
-    ### intMaxRep = numel(vecStimUseOnTime);
-    intMaxRep = len(vecStimUseOnTime)
-
-    ## get temp diff vector
-    #pre-allocate
-    ### cellSpikeTimesPerTrial = cell(intMaxRep,1);
-    cellSpikeTimesPerTrial = [None] * intMaxRep
-
     # go through trials to build spike time vector
-    ### for intEvent=1:intMaxRep
-    for intEvent in range(intMaxRep):
+    cellSpikeTimesPerTrial = []
+    for intEvent, dblStartT in enumerate(vecStimUseOnTime):
         # get times
-        dblStartT = vecStimUseOnTime[intEvent]
         dblStopT = dblStartT + dblUseMaxDur
 
         # build trial assignment
-        ### cellSpikeTimesPerTrial{intEvent} = vecSpikeTimes(vecSpikeTimes < dblStopT & vecSpikeTimes > dblStartT) - dblStartT;
-        cellSpikeTimesPerTrial[intEvent] = vecSpikeTimes[(vecSpikeTimes < dblStopT) & (vecSpikeTimes > dblStartT)] - dblStartT
+        cellSpikeTimesPerTrial.append(vecSpikeTimes[(vecSpikeTimes < dblStopT)
+                                                    & (vecSpikeTimes > dblStartT)] - dblStartT)
 
     # get spikes in fold
-    ### vecThisSpikeT = unique(cell2vec(cellSpikeTimesPerTrial));
-    vecThisSpikeT = list(set(flatten(cellSpikeTimesPerTrial)))
+    vecThisSpikeT = np.concatenate(cellSpikeTimesPerTrial)
 
     # get real fractions for training set
-    ### vecThisSpikeTimes = sort([0;vecThisSpikeT(:);dblUseMaxDur],'ascend');
-    vecThisSpikeTimes = sorted([0] + vecThisSpikeT + [dblUseMaxDur])
-    ### vecThisSpikeFracs = linspace(0,1,numel(vecThisSpikeTimes))';
-    vecThisSpikeFracs = np.linspace(0, 1, len(vecThisSpikeTimes))
-    ### vecThisFrac = interp1(vecThisSpikeTimes,vecThisSpikeFracs,vecSpikeT);
+    vecThisSpikeTimes = np.sort(np.concatenate(([0], vecThisSpikeT, [dblUseMaxDur])))
+    vecThisSpikeFracs = np.linspace(0, 1, vecThisSpikeTimes.shape[0])
     vecThisFrac = interpolate.interp1d(vecThisSpikeTimes, vecThisSpikeFracs)(vecSpikeT)
 
     # get linear fractions
@@ -117,7 +103,6 @@ def getTempOffset(vecSpikeT,vecSpikeTimes,vecStimUseOnTime,dblUseMaxDur):
 
     # calc difference
     vecThisDiff = vecThisFrac - vecThisFracLinear
-    vecThisDiff = vecThisDiff - np.mean(vecThisDiff)
 
     return vecThisDiff, vecThisFrac, vecThisFracLinear
 
@@ -196,14 +181,14 @@ def getPeak(vecData, vecT, vecRestrictRange=(-np.inf,np.inf), intSwitchZ=1):
     if dblMaxPosVal is None and dblMaxNegVal is None :
         indPeakMembers = None
     elif ((dblMaxPosVal is not None and dblMaxNegVal is None)
-          or (dblMaxPosVal is not None and (abs(dblMaxPosVal) >= abs(dblMaxNegVal)))):
+          or (dblMaxPosVal is not None and (np.abs(dblMaxPosVal) >= np.abs(dblMaxNegVal)))):
         intIdx = intPosIdx
         intPeakLoc = vecLocsPos[intIdx]
         dblPeakProm = vecPromsPos[intIdx]
         dblCutOff = vecDataZ[intPeakLoc] - dblPeakProm / 2
         indPeakMembers = (vecDataZ > dblCutOff)
     elif ((dblMaxPosVal is None and dblMaxNegVal is not None)
-          or (dblMaxNegVal is not None and (abs(dblMaxPosVal) < abs(dblMaxNegVal)))):
+          or (dblMaxNegVal is not None and (np.abs(dblMaxPosVal) < np.abs(dblMaxNegVal)))):
         intIdx = intNegIdx
         intPeakLoc = vecLocsNeg[intIdx]
         dblPeakProm = vecPromsNeg[intIdx]
