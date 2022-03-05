@@ -8,6 +8,6 @@ Main function to calculate ZETA: zetapy.getZeta
 Read me and how-to-use example: https://github.com/JorritMontijn/zetapy/
 """
 
-__version__ = '2.6.1'
+__version__ = '2.6.2'
 __author__ = 'Jorrit Montijn, Guido Meijer & Alexander Heimel'
 

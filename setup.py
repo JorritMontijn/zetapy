@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='zetapy',
-    version='2.6.1',
+    version='2.6.2',
     description='Calculates neuronal responsiveness index ZETA.',
     url='https://github.com/JorritMontijn/zetapy',
     author='Jorrit Montijn, Guido Meijer & Alexander Heimel',
