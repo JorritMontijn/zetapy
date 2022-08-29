@@ -2,9 +2,12 @@ import numpy as np
 import time
 import logging
 import math
+import matplotlib.pyplot as plt
+import tkinter as tk
 from zetapy import msd
 from scipy import stats
-from zetapy.dependencies import flatten, getTempOffset, getGumbel, getPeak, getOnset
+from zetapy.dependencies import (flatten, getTempOffset, getGumbel, getPeak, getOnset,
+                                 calculatePeths)
 
 
 def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=0,
@@ -28,9 +31,8 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         (default: median of event onset to event onset)
     intResampNum : integer
         number of resamplings (default: 100)
-    intPlot : integer
-        plotting switch (0=none, 1=inst. rate only, 2=traces only, 3=raster plot as well,
-                         4=adds latencies in raster plot) (default: 0)
+    intPlot : int
+        plotting switch (0: no plot, 1: plot figure) (default: 0)
     intLatencyPeaks : integer
         maximum number of latency peaks to return (1-4) (default: 2)
     tplRestrictRange : 2 element tuple
@@ -219,80 +221,62 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
 
         # get metrics
         dblMeanD = np.mean(vecStimHz - vecBaseHz) / ((np.std(vecStimHz) + np.std(vecBaseHz)) / 2)
-        dblMeanP = stats.ttest_rel(vecStimHz, vecBaseHz)
+        dblMeanP = stats.ttest_rel(vecStimHz, vecBaseHz)[1]
 
-    ## plot
-    if intPlot > 1:
-        logging.warning('Plotting is not translated to python yet')
-        """
-        %plot maximally 50 traces
-        intPlotIters = min([size(matRandDiff,2) 50]);
-
-        %make maximized figure
-        figure
-        drawnow;
-        jFig = get(handle(gcf), 'JavaFrame');
-        jFig.setMaximized(true);
-        figure(gcf);
-        drawnow;
-
-        if intPlot > 2
-            subplot(2,3,1)
-            plotRaster(arrSpikeTimes,arrEventStarts(:,1),dblUseMaxDur,10000);
-            xlabel('Time from event (s)');
-            ylabel('Trial #');
-            title('Spike raster plot');
-            fixfig;
-            grid off;
-        end
-
-        %plot
-        subplot(2,3,2)
-        sOpt = struct;
-        sOpt.handleFig =-1;
-        [vecMean,vecSEM,vecWindowBinCenters] = doPEP(arrSpikeTimes,0:0.025:dblUseMaxDur,arrEventStarts(:,1),sOpt);
-        errorbar(vecWindowBinCenters,vecMean,vecSEM);
-        ylim([0 max(get(gca,'ylim'))]);
-        title(sprintf('Mean spiking over trials'));
-        xlabel('Time from event (s)');
-        ylabel('Mean spiking rate (Hz)');
-        fixfig
-
-        subplot(2,3,3)
-        plot(vecSpikeT,vecRealFrac)
-        hold on
-        plot(vecSpikeT,vecRealFracLinear,'color',[0.5 0.5 0.5]);
-        title(sprintf('Real data'));
-        xlabel('Time from event (s)');
-        ylabel('Fractional position of spike in trial');
-        fixfig
-
-        subplot(2,3,4)
-        cla;
-        hold all
-        for intOffset=1:intPlotIters
-            plot(vecSpikeT,matRandDiff(:,intOffset),'Color',[0.5 0.5 0.5]);
-        end
-        plot(vecSpikeT,vecRealDiff,'Color',lines(1));
-        scatter(dblMaxDTime,vecRealDiff(intZETALoc),'bx');
-        scatter(dblMaxDTimeInvSign,vecRealDiff(intPeakLocInvSign),'b*');
-        hold off
-        xlabel('Time from event (s)');
-        ylabel('Offset of data from linear (s)');
-        if boolStopSupplied
-            title(sprintf('ZETA=%.3f (p=%.3f), d(Hz)=%.3f (p=%.3f)',dblZETA,dblZetaP,dblMeanD,dblMeanP));
-        else
-            title(sprintf('ZETA=%.3f (p=%.3f)',dblZETA,dblZetaP));
-        end
-        fixfig
-    """
+    if intPlot == 1:
+        #logging.warning('Plotting is not translated to python yet')
+        
+        # Plot maximally 50 traces
+        intPlotIters = np.min([arrEventStarts.shape[0], 50])
+        
+        # Calculate optimal DPI depending on the monitor size
+        screen_width = tk.Tk().winfo_screenwidth()
+        dpi = screen_width / 15
+        
+        # Create figure
+        f, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(12, 6), dpi=dpi)
+        
+        # Plot spike raster
+        for i, t in enumerate(arrEventStarts[:intPlotIters]):
+            idx = np.bitwise_and(arrSpikeTimes >= t, arrSpikeTimes <= t + dblUseMaxDur)
+            event_spks = arrSpikeTimes[idx]
+            ax1.vlines(event_spks - t, i + 1, i, color='k', lw=0.3)
+        ax1.set(xlabel='Time from event (s)', ylabel='Trial #', title='Spike raster plot')
+      
+        # Get peri-event time histogram
+        peth, binned_spikes = calculatePeths(arrSpikeTimes, np.ones(arrSpikeTimes.shape), [1],
+                                              arrEventStarts, pre_time=0, post_time=dblUseMaxDur,
+                                              bin_size=dblUseMaxDur/25, smoothing=0)
+        ax2.errorbar(peth['tscale'], peth['means'][0, :], yerr=peth['sems'])
+        ax2.set(xlabel='Time from event (s)', ylabel='spks/s',
+                title='Mean spiking over trials')
+        
+        ax3.plot(vecSpikeT, vecRealFrac)
+        ax3.plot(vecSpikeT, vecRealFracLinear, color=[0.7, 0.7, 0.7])
+        ax3.set(xlabel='Time from event (s)', ylabel='Fractional position \n of spike in trial',
+                title='Real data')
+        
+        for i in range(intPlotIters):
+            ax4.plot(vecSpikeT, matRandDiff[:, i], color=[0.7, 0.7, 0.7])
+        ax4.plot(vecSpikeT, vecRealDiff)
+        ax4.plot(dblMaxDTime, vecRealDiff[intZETALoc], 'bx')
+        ax4.plot(dblMaxDTimeInvSign, vecRealDiff[intPeakLocInvSign], 'b*')
+        ax4.set(xlabel='Time from event (s)', ylabel='Offset of data from linear (s)')
+        if boolStopSupplied:
+            ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), d(Hz)={dblMeanD:.3f} (p={dblMeanP:.3f})')
+        else:
+            ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f})')
+            
+    else:
+        ax5, ax6 = [], []         
 
     ## calculate MSD if significant
     if intLatencyPeaks > 0:
         # get average of multi-scale derivatives, and rescaled to instantaneous spiking rate
         dblMeanRate =  intSpikes / (dblUseMaxDur * intMaxRep)
-        vecRate, dRate = msd.getMultiScaleDeriv(vecSpikeT, vecRealDiff, intPlot=intPlot,
-                                                dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur)
+        vecRate, dRate = msd.getMultiScaleDeriv(vecSpikeT, vecRealDiff, boolPlot=intPlot,
+                                                dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur,
+                                                axs=[ax5, ax6])                
     else:
         dRate = None
 
@@ -325,22 +309,21 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
                                            vecRate[intPeakLoc]], dtype=object)
             arrLatencies = arrLatencies[0:intLatencyPeaks]
             vecLatencyVals = vecLatencyVals[0:intLatencyPeaks]
-            if intPlot > 0:
-                logging.warning('Plot not translated to python yet')
+            if intPlot == 1:
+                
+                ax6.plot(dblPeakTime, vecRate[intPeakLoc], 'gx')
+                ax6.plot(dblMaxDTime, vecRate[intZETALoc], 'bx')
+                ax6.plot(dblMaxDTimeInvSign, vecRate[intPeakLocInvSign], 'b*')
+                if intLatencyPeaks > 3:
+                    ax6.plot(dblOnset, dblOnsetVal, 'rx')
+                    ax6.set(title=f'ZETA={dblMaxDTime*1000:.0f}ms,-ZETA={dblMaxDTimeInvSign*1000:.0f}ms,' \
+                            'Pk={dblPeakTime*1000:.0f}ms,On={dblOnset*1000:.2f}ms')
+                else:
+                    ax6.set(title=f'ZETA={dblMaxDTime*1000:.0f}ms,-ZETA={dblMaxDTimeInvSign*1000:.0f}ms')
+                
+                
                 """
-                hold on
-                scatter(dblPeakTime,vecRate(intPeakLoc),'gx');
-                scatter(dblMaxDTime,vecRate(intZETALoc),'bx');
-                scatter(dblMaxDTimeInvSign,vecRate(intPeakLocInvSign),'b*');
-                if intLatencyPeaks > 3
-                    scatter(dblOnset,dblOnsetVal,'rx');
-                    title(sprintf('ZETA=%.0fms,-ZETA=%.0fms,Pk=%.0fms,On=%.2fms',dblMaxDTime*1000,dblMaxDTimeInvSign*1000,dblPeakTime*1000,dblOnset*1000));
-                else
-                    title(sprintf('ZETA=%.0fms,-ZETA=%.0fms,Pk=%.0fms',dblMaxDTime*1000,dblMaxDTimeInvSign*1000,dblPeakTime*1000));
-                end
-                hold off
-                fixfig;
-
+     
                 if intPlot > 3
                     vecHandles = get(gcf,'children');
                     ptrFirstSubplot = vecHandles(find(contains(get(vecHandles,'type'),'axes'),1,'last'));
@@ -362,6 +345,9 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     else:
         arrLatencies = []
         vecLatencyVals = []
+
+    if intPlot == 1:
+        plt.tight_layout()
 
     ## build optional output dictionary
     dZETA = dict()
