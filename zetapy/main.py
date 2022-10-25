@@ -274,7 +274,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     if intLatencyPeaks > 0:
         # get average of multi-scale derivatives, and rescaled to instantaneous spiking rate
         dblMeanRate =  intSpikes / (dblUseMaxDur * intMaxRep)
-        vecRate, dRate = msd.getMultiScaleDeriv(vecSpikeT, vecRealDiff, boolPlot=intPlot,
+        vecRate, dRate = msd.getMultiScaleDeriv(vecSpikeT, vecRealDiff, intPlot=intPlot,
                                                 dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur,
                                                 axs=[ax5, ax6])                
     else:
