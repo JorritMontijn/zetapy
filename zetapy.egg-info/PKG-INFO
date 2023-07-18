@@ -1,19 +1,17 @@
 Metadata-Version: 2.1
 Name: zetapy
-Version: 2.7
+Version: 2.7.2
 Summary: Calculates neuronal responsiveness index ZETA.
 Home-page: https://github.com/JorritMontijn/zetapy
 Author: Jorrit Montijn, Guido Meijer & Alexander Heimel
-Author-email: guido.meijer@research.fchampalimaud.org
+Author-email: guido.meijer@donders.ru.nl
 License: GNU General Public License
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 License-File: LICENSE
-
-UNKNOWN
-

@@ -8,4 +8,5 @@ zetapy/msd.py
 zetapy.egg-info/PKG-INFO
 zetapy.egg-info/SOURCES.txt
 zetapy.egg-info/dependency_links.txt
+zetapy.egg-info/requires.txt
 zetapy.egg-info/top_level.txt
