@@ -73,39 +73,46 @@ def flatten(l):
         else:
             yield el
 
-def getTempOffset(vecSpikeT, vecSpikeTimes, vecStimUseOnTime, dblUseMaxDur):
-    """Calculate temporal offset vectors across folds and offsets.
 
-    Syntax:
-    [vecThisDiff,vecThisFrac,vecThisFracLinear] =
-        getTempOffset(vecSpikeT,vecSpikeTimes,vecStimUseOnTime,dblUseMaxDur)
+def getSpikeT(vecSpikeTimes, vecEventStarts, dblMaxDur):
     """
-
+    """
+    
     # go through trials to build spike time vector
     cellSpikeTimesPerTrial = []
-    for intEvent, dblStartT in enumerate(vecStimUseOnTime):
+    for intEvent, dblStartT in enumerate(vecEventStarts):
         # get times
-        dblStopT = dblStartT + dblUseMaxDur
+        dblStopT = dblStartT + dblMaxDur
 
         # build trial assignment
         cellSpikeTimesPerTrial.append(vecSpikeTimes[(vecSpikeTimes < dblStopT)
                                                     & (vecSpikeTimes > dblStartT)] - dblStartT)
 
     # get spikes in fold
-    vecThisSpikeT = np.concatenate(cellSpikeTimesPerTrial)
+    vecSpikeT = np.concatenate([0], np.concatenate(cellSpikeTimesPerTrial), [dblMaxDur])
+    
+    return vecSpikeT
 
-    # get real fractions for training set
-    vecThisSpikeTimes = np.sort(np.concatenate(([0], vecThisSpikeT, [dblUseMaxDur])))
+
+def getTempOffset(vecSpikeTimes, vecStimUseOnTime, dblUseMaxDur):
+    """
+    Calculate temporal offset vectors across folds and offsets.
+    """
+
+
+    # Get temp diff vector
+    vecSpikesInTrial = getSpikeT(vecSpikeTimes, vecStimUseOnTime, dblUseMaxDur)
+    vecThisSpikeTimes = np.unique(vecSpikesInTrial)
     vecThisSpikeFracs = np.linspace(0, 1, vecThisSpikeTimes.shape[0])
-    vecThisFrac = interpolate.interp1d(vecThisSpikeTimes, vecThisSpikeFracs)(vecSpikeT)
-
-    # get linear fractions
-    vecThisFracLinear = vecSpikeT / dblUseMaxDur
-
-    # calc difference
-    vecThisDiff = vecThisFrac - vecThisFracLinear
-
-    return vecThisDiff, vecThisFrac, vecThisFracLinear
+    
+    # Get linear fractions
+    vecThisFracLinear = vecThisSpikeTimes / dblUseMaxDur
+    
+    # Calculate difference
+    vecThisDiff = vecThisSpikeFracs - vecThisFracLinear
+    vecThisDiff = vecThisDiff - np.mean(vecThisDiff)
+    
+    return vecThisDiff, vecThisSpikeFracs, vecThisFracLinear, vecThisSpikeTimes
 
 
 def getPeak(vecData, vecT, vecRestrictRange=(-np.inf,np.inf), intSwitchZ=1):

@@ -12,7 +12,8 @@ from zetapy.dependencies import (flatten, getTempOffset, getGumbel, getPeak, get
 
 def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=0,
             intLatencyPeaks=2, tplRestrictRange=(-np.inf,np.inf),
-            boolReturnRate=False, boolReturnZETA=False, boolVerbose=False):
+            boolReturnRate=False, boolReturnZETA=False, boolDirectQuantile=False,
+            dblJitterSize=2, boolStitch=True, boolVerbose=False):
     """
     Calculates neuronal responsiveness index ZETA.
 
@@ -43,6 +44,8 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         switch to return dictionary with additional ZETA parameters
     boolVerbose : boolean
         switch to print progress messages (default: false)
+    
+    TO DO: Add new inputs
 
     Returns
     -------
