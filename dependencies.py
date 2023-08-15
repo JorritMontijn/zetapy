@@ -303,6 +303,7 @@ def getOnset(vecData,vecT,dblPeakT,vecRestrictRange,intSwitchZ=1):
         intOnsetIdx = intOnsetIdx[0]
         dblOnset = vecCropT[intOnsetIdx]
         dblValue = vecData[vecT > dblOnset]
+        dblValue = dblValue[0]
     else:
         dblOnset = None
         dblValue = None

@@ -19,7 +19,7 @@ Created by Jorrit Montijn, translated to python by Alexander Heimel
 np.random.seed(1)
 
 # load data for example cell
-dLoad = scipy.io.loadmat('ExampleDataZETA.mat')
+dLoad = scipy.io.loadmat('F:\\Code\\Python\\zetapy\\ExampleDataZETA.mat')
 
 # some information about the neuron is stored in the dNeuron structure,
 # such as whether Kilosort2 thought it was an acceptable neuron
@@ -54,8 +54,7 @@ intResampNum = 50
 
 # what do we want to plot?(0=nothing, 1=inst. rate only, 2=traces only, 3=raster plot as well,
 # 4=adds latencies in raster plot)
-# TO DO plotting still needs to be implemented
-intPlot = 0
+intPlot = 1
 
 # how many latencies do we want? 1=ZETA, 2=-ZETA, 3=peak, 4=first crossing of peak half-height
 intLatencyPeaks = 4
