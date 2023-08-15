@@ -19,7 +19,8 @@ Created by Jorrit Montijn, translated to python by Alexander Heimel
 np.random.seed(1)
 
 # load data for example cell
-dLoad = scipy.io.loadmat('F:\\Code\\Python\\zetapy\\ExampleDataZETA.mat')
+strDataFile = os.path.join(os.path.dirname(__file__), 'ExampleDataZETA.mat')
+dLoad = scipy.io.loadmat(strDataFile)
 
 # some information about the neuron is stored in the dNeuron structure,
 # such as whether Kilosort2 thought it was an acceptable neuron
