@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 # from zetapy import msd
 from scipy import stats
-from zetapy.dependencies import (calcZetaOne, plotzeta, getMultiScaleDeriv, getPeak, getOnset)
+from zetapy.dependencies import (calcZetaOne, plotzeta)
+from zetapy.ifr_dependencies import (getMultiScaleDeriv, getPeak, getOnset)
 # from zetapy.dependencies import (flatten, getTempOffset, getGumbel, getPeak, getOnset,
 #                                 calculatePeths)
 
@@ -126,7 +127,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     dblZetaP = 1.0
     dZETA = dict()
     dRate = dict()
-    vecLatencies = np.empty((1, 4))
+    vecLatencies = np.empty((4, 1))
     vecLatencies.fill(np.nan)
     vecLatencyVals = vecLatencies
    
@@ -279,7 +280,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
     # direct quantile comnputation
     if boolDirectQuantile is None:
-        boolDirectQuantile = True
+        boolDirectQuantile = False
     else:
         assert isinstance(boolDirectQuantile, bool), "boolDirectQuantile is not a boolean"
 
@@ -303,8 +304,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     boolParallel = False
 
     # %% calculate zeta
-    dZETA_One = calcZetaOne(
-        vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch, boolParallel)
+    dZETA_One = calcZetaOne(vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch, boolParallel)
     
     #update and unpack
     dZETA.update(dZETA_One)
@@ -330,8 +330,8 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
     # find peak of inverse sign
     intIdx_InvSign = np.argmax(-np.sign(dblZETADeviation)*vecRealDeviation)
-    dblT_InvSign = vecSpikeT(intIdx_InvSign)
-    dblD_InvSign = vecRealDeviation(intIdx_InvSign)
+    dblT_InvSign = vecSpikeT[intIdx_InvSign]
+    dblD_InvSign = vecRealDeviation[intIdx_InvSign]
 
     # %% calculate mean-rate difference with t-test
     if boolStopSupplied:
@@ -361,23 +361,23 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         vecRate, dRate = getMultiScaleDeriv(vecSpikeT, vecRealDeviation,
                                             dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur, boolParallel=boolParallel)
 
-    # %% calculate IFR statistics
-    if vecRate is not None and intLatencyPeaks > 0:
-        # get IFR peak
-        dPeak = getPeak(vecRate, vecSpikeT, tplRestrictRange=tplRestrictRange)
-        dRate.update(dPeak)
-        if dRate['dblPeakTime'] is not None and ~np.isnan(dRate['dblPeakTime']):
-            # assign array data
-            if intLatencyPeaks > 3:
-                # get onset
-                dblOnset, dblOnsetVal = getOnset(vecRate, vecSpikeT, dRate['dblPeakTime'], tplRestrictRange)[0:1]
-                dRate['dblOnset'] = dblOnset
-                vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], dblOnset]
-                vecLatencyVals = [vecRate[intZETAIdx], vecRate[intIdx_InvSign], vecRate[dPeak['intPeakLoc']], dblOnsetVal]
-            else:
-                dRate['dblOnset'] = None
-                vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], None]
-                vecLatencyVals = [vecRate[intZETAIdx], vecRate[intIdx_InvSign], vecRate[dPeak['intPeakLoc']], None]
+        # %% calculate IFR statistics
+        if vecRate is not None and intLatencyPeaks > 0:
+            # get IFR peak
+            dPeak = getPeak(vecRate, vecSpikeT, tplRestrictRange=tplRestrictRange)
+            dRate.update(dPeak)
+            if dRate['dblPeakTime'] is not None and ~np.isnan(dRate['dblPeakTime']):
+                # assign array data
+                if intLatencyPeaks > 3:
+                    # get onset
+                    dblOnset, dblOnsetVal = getOnset(vecRate, vecSpikeT, dRate['dblPeakTime'], tplRestrictRange)[0:1]
+                    dRate['dblOnset'] = dblOnset
+                    vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], dblOnset]
+                    vecLatencyVals = [vecRate[intZETAIdx], vecRate[intIdx_InvSign], vecRate[dPeak['intPeakLoc']], dblOnsetVal]
+                else:
+                    dRate['dblOnset'] = None
+                    vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], None]
+                    vecLatencyVals = [vecRate[intZETAIdx], vecRate[intIdx_InvSign], vecRate[dPeak['intPeakLoc']], None]
 
     # %% build output dictionary
     ## fill dZETA

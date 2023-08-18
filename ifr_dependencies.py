@@ -5,6 +5,7 @@ Created on Fri Aug 18 11:21:03 2023
 @author: Jorrit
 """
 
+import numpy as np
 
 def getMultiScaleDeriv(vecT, vecV,
                        intSmoothSd=0, dblMinScale=None, dblBase=1.5, dblMeanRate=1, dblUseMaxDur=None, boolParallel=False):

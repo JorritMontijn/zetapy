@@ -19,59 +19,54 @@ Created by Jorrit Montijn, translated to python by Alexander Heimel
 np.random.seed(1)
 
 # load data for example cell
-strDataFile = os.path.join(os.path.dirname(__file__), 'ExampleDataZETA.mat')
+strDataFile = os.path.join(os.path.dirname(__file__), 'ExampleDataZetaTest.mat')
 dLoad = scipy.io.loadmat(strDataFile)
 
-# some information about the neuron is stored in the dNeuron structure,
-# such as whether Kilosort2 thought it was an acceptable neuron
-dNeuron = dLoad['sNeuron']
-if dNeuron['KilosortGood'] == 0 or dNeuron['NonStationarity'] > 0.5:
-    raise(Exception('BadUnit: This unit is non-stationary, noise-like, or contaminated'))
-
 # retrieve the spike times as an array from the field in dNeuron
-arrSpikeTimes = dNeuron['SpikeTimes'][0][0]
+vecSpikeTimes1 = dLoad['sNeuron']['SpikeTimes'][0][0]
+vecSpikeTimes2 = dLoad['sNeuron']['SpikeTimes'][0][1]
 
 # load stimulation information
 sStim = dLoad['sStim']
-arrStimulusStartTimes = sStim['StimOnTime'][0][0][0]  # unpacking Matlab array
-arrStimulusStopTimes = sStim['StimOffTime'][0][0][0]  # unpacking Matlab array
+vecStimulusStartTimes = sStim['StimOnTime'][0][0][0]  # unpacking Matlab array
+vecStimulusStopTimes = sStim['StimOffTime'][0][0][0]  # unpacking Matlab array
 
 # put stimulus start and stop times together into a [T x 2] matrix
-arrEventTimes = np.transpose(np.array([arrStimulusStartTimes,arrStimulusStopTimes]))
+arrEventTimes = np.transpose(np.array([vecStimulusStartTimes,vecStimulusStopTimes]))
 
 # run the ZETA-test with default parameters
-dblZetaP = zetatest(arrSpikeTimes, arrEventTimes)[0] #use [0] to return only the p-value
+dblZetaP,dZETA,dRate,vecLatencies = zetatest(vecSpikeTimes2, vecStimulusStartTimes) #use [0] to return only the p-value
 
 print(f'\nDefault parameters\np-value: {dblZetaP}')
 
-## run the ZETA-test with specified parameters
+# ## run the ZETA-test with specified parameters
 
-# median of trial-to-trial durations
-dblUseMaxDur = np.median(np.diff(arrStimulusStartTimes))
+# # median of trial-to-trial durations
+# dblUseMaxDur = np.median(np.diff(arrStimulusStartTimes))
 
-# 50 random resamplings should give us a good enough idea if this cell is responsive.
-# If it's close to 0.05, we should increase this number.
-intResampNum = 50
+# # 50 random resamplings should give us a good enough idea if this cell is responsive.
+# # If it's close to 0.05, we should increase this number.
+# intResampNum = 50
 
-# what do we want to plot?(0=nothing, 1=inst. rate only, 2=traces only, 3=raster plot as well,
-# 4=adds latencies in raster plot)
-intPlot = 1
+# # what do we want to plot?(0=nothing, 1=inst. rate only, 2=traces only, 3=raster plot as well,
+# # 4=adds latencies in raster plot)
+# intPlot = 1
 
-# how many latencies do we want? 1=ZETA, 2=-ZETA, 3=peak, 4=first crossing of peak half-height
-intLatencyPeaks = 4
+# # how many latencies do we want? 1=ZETA, 2=-ZETA, 3=peak, 4=first crossing of peak half-height
+# intLatencyPeaks = 4
 
-# do we want to restrict the peak detection to for example the time during stimulus?
-# Then put (0 1) here.
-tplRestrictRange = (0, np.inf)
+# # do we want to restrict the peak detection to for example the time during stimulus?
+# # Then put (0 1) here.
+# tplRestrictRange = (0, np.inf)
 
-# then run ZETA with those parameters
-dblZetaP, dZETA = zetatest(arrSpikeTimes, arrEventTimes,
-                                 dblUseMaxDur=dblUseMaxDur,
-                                 intResampNum=intResampNum,
-                                 intPlot=intPlot,
-                                 intLatencyPeaks=intLatencyPeaks,
-                                 tplRestrictRange=tplRestrictRange)
+# # then run ZETA with those parameters
+# dblZetaP, dZETA = zetatest(vecSpikeTimes, arrEventTimes,
+#                                  dblUseMaxDur=dblUseMaxDur,
+#                                  intResampNum=intResampNum,
+#                                  intPlot=intPlot,
+#                                  intLatencyPeaks=intLatencyPeaks,
+#                                  tplRestrictRange=tplRestrictRange)
 
 
-print(f'\nSpecified parameters\np-value: {dblZetaP}')
+# print(f'\nSpecified parameters\np-value: {dblZetaP}')
 
