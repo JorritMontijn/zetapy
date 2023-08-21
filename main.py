@@ -186,7 +186,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     # vecSpikeTimes must be [S by 1] array
     assert (len(vecSpikeTimes.shape) == 1 or vecSpikeTimes.shape[1] == 1) and issubclass(
         vecSpikeTimes.dtype.type, np.floating), "Input vecSpikeTimes is not a 1D float np.array with >2 spike times"
-    vecSpikeTimes = np.sort(np.reshape(vecSpikeTimes, (-1, 1)), axis=0)
+    vecSpikeTimes = np.sort(vecSpikeTimes.flatten(), axis=0)
     
     # ensure orientation and assert that arrEventTimes is a 1D or N-by-2 array of floats
     assert len(arrEventTimes.shape) < 3 and issubclass(

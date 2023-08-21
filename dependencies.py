@@ -61,7 +61,7 @@ def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDi
     dblMinPreEventT = np.min(vecEventT)-dblUseMaxDur*5*dblJitterSize
     dblStartT = max([vecSpikeTimes[0], dblMinPreEventT])
     dblStopT = max(vecEventT)+dblUseMaxDur*5*dblJitterSize
-    vecSpikeTimes = vecSpikeTimes[np.logical_and(vecSpikeTimes > dblStartT, vecSpikeTimes < dblStopT)]
+    vecSpikeTimes = vecSpikeTimes[np.logical_and(vecSpikeTimes >= dblStartT, vecSpikeTimes <= dblStopT)]
 
     if vecSpikeTimes.size < 3:
         logging.warning(
@@ -88,7 +88,7 @@ def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDi
     intZETAIdx = np.argmax(np.abs(vecRealDeviation))
     dblMaxD = np.abs(vecRealDeviation[intZETAIdx])
 
-    # %% run bootstraps
+    # %% create random jitters
     # run pre-set number of iterations
     cellRandTime = []
     cellRandDeviation = []
@@ -101,8 +101,23 @@ def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDi
     matJitterPerTrial = np.empty((intTrials, intResampNum))
     matJitterPerTrial.fill(np.nan)
     for intResampling in range(intResampNum):
-        matJitterPerTrial[:, intResampling] = vecJitterPerTrial[np.random.permutation(intTrials)]
+        vecRandPerm = np.random.permutation(intTrials)
+        matJitterPerTrial[:, intResampling] = vecJitterPerTrial[vecRandPerm]
 
+    # %% this part is only to check if matlab and python give the same exact results
+    # unfortunately matlab's randperm() and numpy's np.random.permutation give different outputs even with
+    # identical seeds and identical random number generators, so I've had to load in a table of random values here...
+    boolTest = False
+    if boolTest:
+        from scipy.io import loadmat
+        print('Loading deterministic jitter data for comparison with matlab')
+        dLoad = loadmat('matJitterPerTrial.mat')
+        matJitterPerTrial = dLoad['matJitterPerTrial']
+
+        # reset rng
+        np.random.seed(1)
+
+    # %% run resamplings
     for intResampling in range(intResampNum):
         # get random subsample
         vecStimUseOnTime = vecStartOnly[:,0] + matJitterPerTrial[:, intResampling].T
@@ -160,7 +175,7 @@ def getZetaP(arrMaxD, vecMaxRandD, boolDirectQuantile):
     else:
         # calculate statistical significance using Gumbel distribution
         arrZetaP, arrZETA = getGumbel(
-            np.mean(vecMaxRandD), np.var(vecMaxRandD), arrMaxD)
+            np.mean(vecMaxRandD), np.var(vecMaxRandD,ddof=1), arrMaxD) #default ddof for numpy var() is incorrect
     
     # return
     if arrZetaP.size == 1:arrZetaP = arrZetaP[0]
@@ -324,11 +339,12 @@ def getPseudoSpikeVectors(vecSpikeTimes, vecEventTimes, dblWindowDur, boolDiscar
             intStartSample = None
 
         if intEndSample is None:
-            intEndSample = intStartSample
+            intEndSample = len(vecSpikeTimes)
 
         if intStartSample is None or intEndSample is None:
             vecUseSamples = np.empty(0)
         else:
+            intEndSample = intEndSample - 1
             vecEligibleSamples = np.arange(intStartSample, intEndSample+1)
             indUseSamples = np.logical_and(vecEligibleSamples >= 0, vecEligibleSamples < intSamples)
             vecUseSamples = vecEligibleSamples[indUseSamples]
