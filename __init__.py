@@ -1,6 +1,6 @@
 #from zetapy import example
 #from zetapy.example import runExampleZETA
-from zetapy.main import zetatest#, getIFR
-#from zetapy.legacy import getZeta, getIFR
+from zetapy.main import zetatest, ifr
+from zetapy.legacy.main import getZeta, getIFR
 #from zetapy.msd import getMultiScaleDeriv
 #from zetapy.dependencies import getPeak, getGumbel, getOnset, getTempOffset, flatten, calculatePeths

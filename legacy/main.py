@@ -4,9 +4,9 @@ import logging
 import math
 import matplotlib.pyplot as plt
 import tkinter as tk
-from zetapy import msd
+from zetapy.legacy import msd
 from scipy import stats
-from zetapy.dependencies import (flatten, getTempOffset, getGumbel, getPeak, getOnset,
+from zetapy.legacy.dependencies import (flatten, getTempOffset, getGumbel, getPeak, getOnset,
                                  calculatePeths)
 
 
