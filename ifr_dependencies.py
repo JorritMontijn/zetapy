@@ -39,7 +39,7 @@ def getMultiScaleDeriv(vecT, vecV,
                 - vecScale; timescales used to calculate derivatives
                 - matMSD; multi-scale derivatives matrix
                 - vecV; values on which vecRate is calculated (same as input vecV)
-                - intSmoothSd; smoothing strength (same as input intSmoothSd)
+                - dblSmoothSd; smoothing strength (same as input dblSmoothSd)
                 - dblMeanRate; mean rate used for rescaling (same as input dblMeanRate)
 
         Version history:
@@ -163,9 +163,9 @@ def calcSingleMSD(dblScale, vecT, vecV):
 # %%
 
 
-def getPeak(vecData, vecT, vecRestrictRange=(-np.inf, np.inf), intSwitchZ=1):
+def getPeak(vecData, vecT, tplRestrictRange=(-np.inf, np.inf), intSwitchZ=1):
     """Returns highest peak time, width, and location. Syntax:
-        [dblPeakValue,dblPeakTime,dblPeakWidth,vecPeakStartStop,intPeakLoc,vecPeakStartStopIdx] = getPeak(vecData,vecT,vecRestrictRange)
+        getPeak(vecData, vecT, tplRestrictRange=(-np.inf, np.inf), intSwitchZ=1)
 
     Required input:
         - vecData [N x 1]: values
@@ -206,7 +206,7 @@ def getPeak(vecData, vecT, vecRestrictRange=(-np.inf, np.inf), intSwitchZ=1):
     vecPromsPos = peakProps['prominences']
 
     # remove peaks outside window
-    indKeepPeaks = (vecT[vecLocsPos] >= vecRestrictRange[0]) & (vecT[vecLocsPos] <= vecRestrictRange[1])
+    indKeepPeaks = (vecT[vecLocsPos] >= tplRestrictRange[0]) & (vecT[vecLocsPos] <= tplRestrictRange[1])
 
     if np.sum(indKeepPeaks) == 0:
         dblMaxPosVal = None
@@ -224,7 +224,7 @@ def getPeak(vecData, vecT, vecRestrictRange=(-np.inf, np.inf), intSwitchZ=1):
     vecPromsNeg = peakProps['prominences']
 
     # remove peaks outside window
-    indKeepPeaks = (vecT[vecLocsNeg] >= vecRestrictRange[0]) & (vecT[vecLocsNeg] <= vecRestrictRange[1])
+    indKeepPeaks = (vecT[vecLocsNeg] >= tplRestrictRange[0]) & (vecT[vecLocsNeg] <= tplRestrictRange[1])
 
     if np.sum(indKeepPeaks) == 0:
         dblMaxNegVal = None
@@ -302,9 +302,9 @@ def getPeak(vecData, vecT, vecRestrictRange=(-np.inf, np.inf), intSwitchZ=1):
 
 
 # %%
-def getOnset(vecData, vecT, dblPeakTime=None, vecRestrictRange=None):
+def getOnset(vecData, vecT, dblPeakTime=None, tplRestrictRange=None):
     """Returns peak onset. Syntax:
-        dOnset = getOnset(vecData,vecT,dblPeakTime=None,vecRestrictRange=None)
+        dOnset = getOnset(vecData,vecT,dblPeakTime=None,tplRestrictRange=None)
 
     Required input:
         - vecData [N x 1]: values
@@ -312,13 +312,13 @@ def getOnset(vecData, vecT, dblPeakTime=None, vecRestrictRange=None):
 
     Optional inputs:
         - dblPeakTime (float): timestamp corresponding to peak
-        - vecRestrictRange [2 x 1]: restrict peak to lie within vecRestrictRange(1) and vecRestrictRange(end)
+        - tplRestrictRange [2 x 1]: restrict peak to lie within tplRestrictRange(1) and tplRestrictRange(end)
 
     Output:
         dOnset: dict with entries:
         - dblOnset: time of peak onset (first crossing half-height of peak)
         - dblValue: value at peak onset
-        - dblBaseValue: baseline value (first value of vecRestrictRange, or first value in vecData if None)
+        - dblBaseValue: baseline value (first value of tplRestrictRange, or first value in vecData if None)
         - dblPeakTime: time of peak
         - dblPeakValue: value of peak
 
@@ -328,11 +328,11 @@ def getOnset(vecData, vecT, dblPeakTime=None, vecRestrictRange=None):
     """
 
     # check input
-    if vecRestrictRange is None:
-        vecRestrictRange = [np.min(vecT), np.min(vecT)+np.ptp(vecT)]
+    if tplRestrictRange is None:
+        tplRestrictRange = [np.min(vecT), np.min(vecT)+np.ptp(vecT)]
 
     # remove time points outside restricted range
-    indKeep = np.logical_and(vecT >= vecRestrictRange[0], vecT <= vecRestrictRange[1])
+    indKeep = np.logical_and(vecT >= tplRestrictRange[0], vecT <= tplRestrictRange[1])
     vecCropT = vecT[indKeep]
     vecDataCropped = vecData[indKeep]
 

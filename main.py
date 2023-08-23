@@ -9,6 +9,7 @@ import tkinter as tk
 from scipy import stats
 from zetapy.dependencies import (calcZetaOne, getTempOffsetOne, flatten)
 from zetapy.ifr_dependencies import (getMultiScaleDeriv, getPeak, getOnset)
+from zetapy.plot_dependencies import calculatePeths
 
 # %% zetatest
 
@@ -346,10 +347,11 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
         # calculate mean rates during off-times
         dblStart1 = np.min(vecRespBinsDur)
-        dblFirstPreDur = dblStart1 - np.max(dblStart1 - np.median(vecD[1:len(vecD):2]), initial=0)
+        dblFirstPreDur = dblStart1 - np.max(dblStart1 - np.median(vecD[1:len(vecD):2]), initial=0) + np.finfo(float).eps
         dblR1 = np.sum(np.logical_and(vecSpikeTimes > (dblStart1 - dblFirstPreDur), vecSpikeTimes < dblStart1))
-        vecMu_Pre = np.divide(np.concatenate([[dblR1], vecR[1:len(vecR):2]]),
-                              np.concatenate([[dblFirstPreDur], vecD[1:len(vecD):2]]))
+        vecCounts = np.concatenate([[dblR1], vecR[1:len(vecR):2]])
+        vecDurs = np.concatenate([[dblFirstPreDur], vecD[1:len(vecD):2]])
+        vecMu_Pre = np.divide(vecCounts,vecDurs)
 
         # get metrics
         dblMeanP = stats.ttest_rel(vecMu_Dur, vecMu_Pre)[1]
@@ -365,17 +367,17 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         # %% calculate IFR statistics
         if vecRate is not None and intLatencyPeaks > 0:
             # get IFR peak
-            dPeak = getPeak(vecRate, vecSpikeT, tplRestrictRange=tplRestrictRange)
+            dPeak = getPeak(vecRate, dRate['vecT'], tplRestrictRange=tplRestrictRange)
             dRate.update(dPeak)
             if dRate['dblPeakTime'] is not None and ~np.isnan(dRate['dblPeakTime']):
                 # assign array data
                 if intLatencyPeaks > 3:
                     # get onset
-                    dblOnset, dblOnsetVal = getOnset(vecRate, vecSpikeT, dRate['dblPeakTime'], tplRestrictRange)[0:1]
-                    dRate['dblOnset'] = dblOnset
-                    vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], dblOnset]
+                    dOnset = getOnset(vecRate, dRate['vecT'], dRate['dblPeakTime'], tplRestrictRange)
+                    dRate['dblOnset'] = dOnset['dblOnset']
+                    vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], dOnset['dblOnset']]
                     vecLatencyVals = [vecRate[intZETAIdx], vecRate[intIdx_InvSign],
-                                      vecRate[dPeak['intPeakLoc']], dblOnsetVal]
+                                      vecRate[dPeak['intPeakLoc']], dOnset['dblValue']]
                 else:
                     dRate['dblOnset'] = None
                     vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], None]
@@ -403,12 +405,14 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
     # %% plot
     if intPlot > 0:
-        plotzeta(dZETA, dRate, intPlot)
+        plotzeta(vecSpikeTimes, vecEventStarts, dZETA, dRate)
 
     # %% return outputs
     return dblZetaP, dZETA, dRate, vecLatencies
 
 # %% IFR
+
+
 def ifr(vecSpikeTimes, vecEventTimes,
         dblUseMaxDur=None, dblSmoothSd=2, dblMinScale=None, dblBase=1.5, intPlot=0, boolVerbose=True, boolParallel=False):
     """Returns instantaneous firing rates. Syntax:
@@ -526,36 +530,132 @@ def ifr(vecSpikeTimes, vecEventTimes,
 
 
 # %% plotzeta
-def plotzeta(dZETA, dRate,
-             intPlot=1):
+def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
+             intPlotRandSamples=50, intPlotSpikeNum=10000):
 
-    print("to do")
+    # %% check input
+    # vecSpikeTimes must be [S by 1] array
+    assert (len(vecSpikeTimes.shape) == 1 or vecSpikeTimes.shape[1] == 1) and issubclass(
+        vecSpikeTimes.dtype.type, np.floating), "Input vecSpikeTimes is not a 1D float np.array with >2 spike times"
+    vecSpikeTimes = np.sort(vecSpikeTimes.flatten(), axis=0)
+
+    # ensure orientation and assert that arrEventTimes is a 1D or N-by-2 array of floats
+    assert len(arrEventTimes.shape) < 3 and issubclass(
+        arrEventTimes.dtype.type, np.floating), "Input arrEventTimes is not a 1D or 2D float np.array"
+    if len(arrEventTimes.shape) > 1:
+        if arrEventTimes.shape[1] < 3:
+            pass
+        elif arrEventTimes.shape[0] < 3:
+            arrEventTimes = arrEventTimes.T
+        else:
+            raise Exception(
+                "Input error: arrEventTimes must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
+    else:
+        # turn into T-by-1 array
+        arrEventTimes = np.reshape(arrEventTimes, (-1, 1))
+    # define event starts
+    vecEventStarts = arrEventTimes[:, 0]
+
+    # unpack dZETA
+    try:
+        dblUseMaxDur = dZETA['dblUseMaxDur']
+        dblZETA = dZETA['dblZETA']
+        dblZetaP = dZETA['dblZetaP']
+        dblZETADeviation = dZETA['dblZETADeviation']
+        dblZETATime = dZETA['dblZETATime']
+
+        dblD_InvSign = dZETA['dblD_InvSign']
+        dblT_InvSign = dZETA['dblT_InvSign']
+        intIdx_InvSign = dZETA['intIdx_InvSign']
+
+        dblMeanZ = dZETA['dblMeanZ']
+        dblMeanP = dZETA['dblMeanP']
+
+        vecSpikeT = dZETA['vecSpikeT']
+        vecRealDeviation = dZETA['vecRealDeviation']
+        vecRealFrac = dZETA['vecRealFrac']
+        vecRealFracLinear = dZETA['vecRealFracLinear']
+        cellRandTime = dZETA['cellRandTime']
+        cellRandDeviation = dZETA['cellRandDeviation']
+        intZETAIdx = dZETA['intZETAIdx']
+
+    except:
+        raise Exception(
+            "plotzeta error: information is missing from dZETA dictionary")
+
+    # unpack dRate
+    try:
+        vecRate = dRate['vecRate']
+        vecRateT = dRate['vecT']
+        vecM = dRate['vecM']
+        vecScale = dRate['vecScale']
+        matMSD = dRate['matMSD']
+        vecV = dRate['vecV']
+        dblSmoothSd = dRate['dblSmoothSd']
+        dblMeanRate = dRate['dblMeanRate']
+    except:
+        raise Exception(
+            "plotzeta error: information is missing from dRate dictionary")
 
     # %% plot
-    # 	if intPlot > 1
-    # 		%plot maximally 50 traces
-    # 		intPlotIters = min([numel(cellRandDeviation) 50]);
-    #
-    # 		%maximize figure
-    # 		figure;
-    # 		drawnow;
-    # 		try
-    # 			try
-    # 				%try new method
-    # 				h = handle(gcf);
-    # 				h.WindowState = 'maximized';
-    # 			catch
-    # 				%try old method with javaframe (deprecated as of R2021)
-    # 				sWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
-    # 				drawnow;
-    # 				jFig = get(handle(gcf), 'JavaFrame');
-    # 				jFig.setMaximized(true);
-    # 				drawnow;
-    # 				warning(sWarn);
-    # 			end
-    # 		catch
-    # 		end
-    # 		if intPlot > 2
+    # Plot maximally 50 traces (or however man y are requested)
+    intPlotRandSamples = np.min([len(cellRandTime), intPlotRandSamples])
+
+    # Calculate optimal DPI depending on the monitor size
+    screen_width = tk.Tk().winfo_screenwidth()
+    dpi = screen_width / 15
+
+    # Create figure
+    f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 6), dpi=dpi)
+
+    # top left: raster
+    if vecSpikeTimes.size > intPlotSpikeNum:
+        vecSpikeT_reduced = vecSpikeTimes[np.round(np.linspace(0, vecSpikeTimes.size-1, intPlotSpikeNum))]
+    else:
+        vecSpikeT_reduced = vecSpikeTimes
+
+    for i, t in enumerate(vecEventStarts[:intPlotRandSamples]):
+        idx = np.bitwise_and(vecSpikeT_reduced >= t, vecSpikeT_reduced <= t + dblUseMaxDur)
+        event_spks = vecSpikeT_reduced[idx]
+        ax1.vlines(event_spks - t, i + 1, i, color='k', lw=0.3)
+    ax1.set(xlabel='Time after event (s)', ylabel='Trial #', title='Spike raster plot')
+
+    # top right: psth
+    peth, binned_spikes = calculatePeths(vecSpikeTimes, np.ones(vecSpikeTimes.shape), [1],
+                                         vecEventStarts, pre_time=0, post_time=dblUseMaxDur,
+                                         bin_size=dblUseMaxDur/25, smoothing=0)
+    ax2.errorbar(peth['tscale'], peth['means'][0, :], yerr=peth['sems'])
+    ax2.set(xlabel='Time after event (s)', ylabel='spks/s',
+            title='Mean spiking over trials')
+
+    # bottom left: deviation with random jitters
+    for i in range(intPlotRandSamples-1):
+        ax3.plot(cellRandTime[i], cellRandDeviation[i], color=[0.7, 0.7, 0.7])
+    ax3.plot(vecSpikeT, vecRealDeviation)
+    ax3.plot(dblZETATime, dblZETADeviation, 'bx')
+    ax3.plot(dblT_InvSign, dblD_InvSign, 'b*')
+    ax3.set(xlabel='Time after event (s)', ylabel='Spiking density anomaly (s)')
+    if dblMeanZ is not None:
+        ax3.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), z(Hz)={dblMeanZ:.3f} (p={dblMeanP:.3f})')
+    else:
+        ax3.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f})')
+
+    # bottom right: ifr
+    if len(vecRateT) > 1000:
+        vecSubset = np.round(np.linspace(0, len(vecRateT)-1, 1000)).astype(int)
+        ax4.plot(vecRateT[vecSubset],vecRate[vecSubset])
+    else:
+        ax4.plot(vecRateT,vecRate)
+
+    if dblMeanRate == 1:
+        strLabelY = 'Time-locked activation (a.u.)'
+    else:
+        strLabelY = 'Spiking rate (Hz)'
+    ax4.set(xlabel='Time after event (s)', ylabel=strLabelY, title='IFR (instantaneous firing rate)')
+    
+    f.tight_layout()
+    plt.show()
+    
     # 			subplot(2,3,1)
     # 			plotRaster(vecSpikeTimes,vecEventStarts(:,1),dblUseMaxDur,10000);
     # 			xlabel('Time after event (s)');
@@ -563,8 +663,18 @@ def plotzeta(dZETA, dRate,
     # 			title('Spike raster plot');
     # 			fixfig;
     # 			grid off;
-    # 		end
-    #
+
+    # 					vecHandles = get(gcf,'children');
+    # 					ptrFirstSubplot = vecHandles(find(contains(get(vecHandles,'type'),'axes'),1,'last'));
+    # 					axes(ptrFirstSubplot);
+    # 					vecY = get(gca,'ylim');
+    # 					hold on;
+    # 					if intLatencyPeaks > 3,plot(dblOnset*[1 1],vecY,'r--');end
+    # 					plot(dblPeakTime*[1 1],vecY,'g--');
+    # 					plot(dblMaxDTime*[1 1],vecY,'b--');
+    # 					plot(dblMaxDTimeInvSign*[1 1],vecY,'b-.');
+    # 					hold off
+
     # 		%plot
     # 		subplot(2,3,2)
     # 		sOpt = struct;
@@ -582,16 +692,7 @@ def plotzeta(dZETA, dRate,
     # 		xlabel('Time after event (s)');
     # 		ylabel('Mean spiking rate (Hz)');
     # 		fixfig
-    #
-    # 		subplot(2,3,3)
-    # 		plot(vecSpikeT,vecRealFrac)
-    # 		hold on
-    # 		plot(vecSpikeT,vecRealFracLinear,'color',[0.5 0.5 0.5]);
-    # 		title(sprintf('Real data'));
-    # 		xlabel('Time after event (s)');
-    # 		ylabel('Fractional position of spike in trial');
-    # 		fixfig
-    #
+
     # 		subplot(2,3,4)
     # 		cla;
     # 		hold all
@@ -610,26 +711,7 @@ def plotzeta(dZETA, dRate,
     # 			title(sprintf('ZETA=%.3f (p=%.3f)',dblZETA,dblZetaP));
     # 		end
     # 		fixfig
-    # 	end
-    # 	%% plot
-    # 	if intPlot == 1
-    # 		if ~isempty(get(gca,'Children'))
-    # 			figure;
-    # 		end
-    # 		stairs(vecT,vecRate)
-    # 		xlabel('Time after event (s)');
-    # 		ylabel(strLabelY);
-    # 		title(sprintf('Peri Event Plot (PEP)'));
-    # 		fixfig
-    # 	elseif intPlot > 1
-    # 		subplot(2,3,5);
-    # 		imagesc(matMSD');
-    # 		set(gca,'ytick',[]);
-    # 		ylabel(sprintf('Scale (s) (%.1es - %.1es)',vecScale(1),vecScale(end)));
-    # 		xlabel('Timestamp index (#)');
-    # 		title(strTitle);
-    # 		fixfig
-    # 		grid off
+
     # 		subplot(2,3,6);
     # 		if numel(vecT) > 10000
     # 			vecSubset = round(linspace(1,numel(vecT),10000));
@@ -641,8 +723,7 @@ def plotzeta(dZETA, dRate,
     # 		ylabel(strLabelY);
     # 		title(sprintf('Peri Event Plot (PEP)'));
     # 		fixfig
-    # 	end
-    #         if intPlot > 0
+
     # 				hold on
     # 				scatter(dblPeakTime,vecRate(intPeakLoc),'gx');
     # 				scatter(dblMaxDTime,vecRate(intZETAIdx),'bx');
@@ -656,15 +737,3 @@ def plotzeta(dZETA, dRate,
     # 				hold off
     # 				fixfig;
     #
-    # 				if intPlot > 3
-    # 					vecHandles = get(gcf,'children');
-    # 					ptrFirstSubplot = vecHandles(find(contains(get(vecHandles,'type'),'axes'),1,'last'));
-    # 					axes(ptrFirstSubplot);
-    # 					vecY = get(gca,'ylim');
-    # 					hold on;
-    # 					if intLatencyPeaks > 3,plot(dblOnset*[1 1],vecY,'r--');end
-    # 					plot(dblPeakTime*[1 1],vecY,'g--');
-    # 					plot(dblMaxDTime*[1 1],vecY,'b--');
-    # 					plot(dblMaxDTimeInvSign*[1 1],vecY,'b-.');
-    # 					hold off
-    # 				end

@@ -111,6 +111,8 @@ def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDi
     if boolTest:
         from scipy.io import loadmat
         print('Loading deterministic jitter data for comparison with matlab')
+        logging.warning(
+            "calcZetaOne:debugMode: set boolTest to False to suppress this warning")
         dLoad = loadmat('matJitterPerTrial.mat')
         matJitterPerTrial = dLoad['matJitterPerTrial']
 
