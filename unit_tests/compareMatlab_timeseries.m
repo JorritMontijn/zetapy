@@ -34,3 +34,6 @@ vecData = conv(vecData, vecFilt, 'valid');
 	getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur);
 
 
+%% test getTsRefT
+# not the same yet
+vecTime = getTsRefT(vecPseudoTime,vecPseudoEventT,dblWindowDur)

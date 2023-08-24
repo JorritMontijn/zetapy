@@ -340,13 +340,16 @@ def getTimeseriesOffsetOne(vecTimestamps,vecData, vecEventStartT, dblUseMaxDur):
 # %% getTsRefT
 def getTsRefT(vecTimestamps,vecEventStartT,dblUseMaxDur):
     #pre-allocate
-    vecEventStartT = sorted(vecEventStartT)
+    vecEventStartT = np.sort(vecEventStartT)
     intTimeNum = len(vecTimestamps)-1
     
     
     #build common timeframe
     cellRefT = []
     for intTrial,dblStartT in enumerate(vecEventStartT):
+       # %%
+       #intTrial = intTrial + 1
+       #dblStartT = vecEventStartT[intTrial]
        # get original times
        dblStopT = dblStartT+dblUseMaxDur
        intStartT = np.max([0,findfirst(vecTimestamps > dblStartT) - 1])
@@ -358,9 +361,10 @@ def getTsRefT(vecTimestamps,vecEventStartT,dblUseMaxDur):
     
     
     #set tol
-    dblSampInterval = np.median(np.diff(vecTimestamps));
+    dblSampInterval = np.median(np.diff(vecTimestamps,axis=0));
     dblTol = dblSampInterval/100
-    vecTime = uniquetol(sorted(np.vstack(np.concatenate(cellRefT))),dblTol)
+    vecVals = np.sort(np.vstack(np.concatenate(cellRefT)))
+    vecTime = uniquetol(vecVals,dblTol)
     
     # return
     return vecTime
@@ -396,7 +400,8 @@ def getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,
 #         %get real fractions for training set
 #         matTracePerTrial(intTrial,:) = interp1(vecUseTimes,vecUseTrace,vecUseInterpT);
 #     end
-
+    vecTime = []
+    matTracePerTrial = []
     return vecTime,matTracePerTrial
 
 def uniquetol(array_in,dblTol):

@@ -84,4 +84,3 @@ boolStitch = true;
 matEventTimes = [vecEventTimes vecEventTimes+0.5];
 [dblZetaP,sZETA,sRate,vecLatencies] = zetatest(vecSpikeTimes,matEventTimes,dblUseMaxDur,...
     intResampNum,intPlot,intLatencyPeaks,vecRestrictRange,boolDirectQuantile,dblJitterSize,boolStitch);
-
