@@ -1,15 +1,15 @@
 
 %% set random seed
-rng(1,'mt19937ar')
-dblEndT = 10.9;
-dblStartT = -0.9;
+rng(100,'mt19937ar')
+dblEndT = 12.9;
+dblStartT = -2.9;
 dblTotDur = dblEndT-dblStartT;
 dblWindowDur = 1.0;
 dblSamplingRate = 25.0; %Hz
 dblSampleDur = 1/dblSamplingRate;
 
 vecSpikeTimes = dblTotDur*sort(rand(1000,1)) + dblStartT;
-vecEventTimes = 0:dblWindowDur:dblEndT-dblWindowDur;
+vecEventTimes = (0:dblWindowDur:9)';
 
 %transform to time-series
 vecTimestamps =  dblStartT:dblSampleDur:dblEndT;
@@ -36,4 +36,27 @@ vecData = conv(vecData, vecFilt, 'valid');
 
 %% test getTsRefT
 %passes
-vecTime = getTsRefT(vecPseudoTime,vecPseudoEventT,dblWindowDur)
+vecTime = getTsRefT(vecPseudoTime,vecPseudoEventT,dblWindowDur);
+
+%% getInterpolatedTimeSeries
+[vecUsedTime,matDataPerTrial] = getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventTimes,dblWindowDur,vecTime)
+
+%% getTraceOffsetOne
+[vecThisDiff,vecThisFrac,vecThisFracLinear,vecRefT] = ...
+	getTraceOffsetOne(vecTimestamps,vecData, vecEventTimes, dblWindowDur)
+
+%% calcTsZetaOne
+intResampNum =1000;
+boolDirectQuantile = false;
+dblJitterSize = 2;
+%[vecRefT,vecRealDiff,vecRealFrac,vecRealFracLinear,cellRandT,cellRandDiff,dblZetaP,dblZETA,intZETALoc] = ...
+%		calcTsZetaOne(vecTimestamps,vecData,vecEventTimes,dblWindowDur,intResampNum,boolDirectQuantile,dblJitterSize)
+	
+
+%% zetatstest
+intPlot = 0;
+[dblZetaP,sZETA] = zetatstest(vecTimestamps,vecData,vecEventTimes,dblWindowDur,intResampNum,intPlot,boolDirectQuantile,dblJitterSize)
+
+
+
+

@@ -4,19 +4,19 @@ import logging
 from scipy import stats
 from math import pi, sqrt, exp
 from collections.abc import Iterable
-from zetapy.dependencies import (flatten, findfirst, getZetaP)
+from zetapy.dependencies import (findfirst, getZetaP)
 
 # %%
-def calcTsZetaOne(vecTime, vecValue, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize):
+def calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize):
     """
    Calculates neuronal responsiveness index zeta
-    dZETA = calcTsZetaOne(vecTime, vecValue, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize)
+    dZETA = calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize)
     dZETA has entries:
-        vecTimestamps, vecRealDeviation, vecRealFrac, vecRealFracLinear, cellRandTime, cellRandDeviation, dblZetaP, dblZETA, intZETAIdx
+        vecRealTime, vecRealDeviation, vecRealFrac, vecRealFracLinear, cellRandTime, cellRandDeviation, dblZetaP, dblZETA, intZETAIdx
     """
 
     # %% pre-allocate output
-    vecTimestamps = None
+    vecRealTime = None
     vecRealDeviation = None
     vecRealFrac = None
     vecRealFracLinear = None
@@ -27,7 +27,7 @@ def calcTsZetaOne(vecTime, vecValue, arrEventTimes, dblUseMaxDur, intResampNum, 
     intZETAIdx = None
 
     dZETA = dict()
-    dZETA['vecTimestamps'] = vecTimestamps
+    dZETA['vecRealTime'] = vecRealTime
     dZETA['vecRealDeviation'] = vecRealDeviation
     dZETA['vecRealFrac'] = vecRealFrac
     dZETA['vecRealFracLinear'] = vecRealFracLinear
@@ -56,27 +56,28 @@ def calcTsZetaOne(vecTime, vecValue, arrEventTimes, dblUseMaxDur, intResampNum, 
     vecEventT = arrEventTimes[:, 0]
 
     dblMinPreEventT = np.min(vecEventT)-dblUseMaxDur*5*dblJitterSize
-    dblStartT = max([vecTime[0], dblMinPreEventT])
+    dblStartT = max([vecTimestamps[0], dblMinPreEventT])
     dblStopT = max(vecEventT)+dblUseMaxDur*5*dblJitterSize
-    indKeepEntries = np.logical_and(vecTime >= dblStartT, vecTime <= dblStopT)
-    vecTime = vecTime[indKeepEntries]
-    vecValue = vecValue[indKeepEntries]
+    indKeepEntries = np.logical_and(vecTimestamps >= dblStartT, vecTimestamps <= dblStopT)
+    vecTimestamps = vecTimestamps[indKeepEntries]
+    vecData = vecData[indKeepEntries]
 
-    if vecTime.size < 3:
+    if vecTimestamps.size < 3:
         logging.warning(
-            "calcTsZetaOne:vecTime: too few entries around events to calculate zeta")
+            "calcTsZetaOne:vecTimestamps: too few entries around events to calculate zeta")
         return dZETA
 
     # %% build pseudo data, stitching stimulus periods
-    vecPseudoT,vecPseudoV,vecPseudoEventT = getPseudoTimeSeries(vecTime, vecValue, vecEventT, dblUseMaxDur)
-    if vecTime.size < 3:
+    vecPseudoT,vecPseudoV,vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
+    vecPseudoV = vecPseudoV - np.min(vecPseudoV)
+    if vecTimestamps.size < 3:
         logging.warning(
             "calcTsZetaOne:vecPseudoT: too few entries around events to calculate zeta")
         return dZETA
     
     # %% run normal
     # get data
-    vecRealDeviation, vecRealFrac, vecRealFracLinear, vecSpikeT = getTimeseriesOffsetOne(vecPseudoT,vecPseudoV, vecPseudoEventT, dblUseMaxDur)
+    vecRealDeviation, vecRealFrac, vecRealFracLinear, vecRealTime = getTimeseriesOffsetOne(vecPseudoT,vecPseudoV, vecPseudoEventT, dblUseMaxDur)
 
     if vecRealDeviation.size < 3:
         logging.warning(
@@ -112,7 +113,7 @@ def calcTsZetaOne(vecTime, vecValue, arrEventTimes, dblUseMaxDur, intResampNum, 
         print('Loading deterministic jitter data for comparison with matlab')
         logging.warning(
             "calcZetaOne:debugMode: set boolTest to False to suppress this warning")
-        dLoad = loadmat('matJitterPerTrial.mat')
+        dLoad = loadmat('matJitterPerTrialTsZeta.mat')
         matJitterPerTrial = dLoad['matJitterPerTrial']
 
         # reset rng
@@ -124,7 +125,7 @@ def calcTsZetaOne(vecTime, vecValue, arrEventTimes, dblUseMaxDur, intResampNum, 
         vecStimUseOnTime = vecStartOnly[:,0] + matJitterPerTrial[:, intResampling].T
 
         # get temp offset
-        vecRandDeviation, vecThisFrac, vecThisFracLinear, vecRandT = getTimeseriesOffsetOne(vecPseudoT, vecStimUseOnTime, dblUseMaxDur)
+        vecRandDeviation, vecThisFrac, vecThisFracLinear, vecRandT = getTimeseriesOffsetOne(vecPseudoT, vecPseudoV, vecStimUseOnTime, dblUseMaxDur)
 
         # assign data
         cellRandTime.append(vecRandT)
@@ -136,7 +137,7 @@ def calcTsZetaOne(vecTime, vecValue, arrEventTimes, dblUseMaxDur, intResampNum, 
 
     # %% assign output
     dZETA = dict()
-    dZETA['vecSpikeT'] = vecSpikeT
+    dZETA['vecRealTime'] = vecRealTime
     dZETA['vecRealDeviation'] = vecRealDeviation
     dZETA['vecRealFrac'] = vecRealFrac
     dZETA['vecRealFracLinear'] = vecRealFracLinear
@@ -145,7 +146,8 @@ def calcTsZetaOne(vecTime, vecValue, arrEventTimes, dblUseMaxDur, intResampNum, 
     dZETA['dblZetaP'] = dblZetaP
     dZETA['dblZETA'] = dblZETA
     dZETA['intZETAIdx'] = intZETAIdx
-    return 
+    
+    return dZETA
 
 # %% getpseudotimeseries
 def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
@@ -351,12 +353,22 @@ def getTsRefT(vecTimestamps,vecEventStartT,dblUseMaxDur):
         #intTrial = intTrial + 1
         #dblStartT = vecEventStartT[intTrial]
         # get original times
-        dblStopT = dblStartT+dblUseMaxDur
-        intStartT = np.max([0,findfirst(vecTimestamps > dblStartT) - 1])
-        intStopT = np.min([intTimeNum,findfirst(vecTimestamps > dblStopT)])
-        vecSelectSamples = np.arange(intStartT,intStopT+1)
+        intBegin = findfirst(vecTimestamps > dblStartT) 
+        if intBegin is None:
+            intStartT = 0
+        else:
+            intStartT = np.max([0,intBegin - 1])
         
-        # get data
+        dblStopT = dblStartT+dblUseMaxDur
+        intEnd = findfirst(vecTimestamps > dblStopT)
+        if intEnd is None:
+            intStopT = intTimeNum
+        else:
+            intStopT = np.min([intTimeNum,intEnd])
+            
+        vecSelectSamples = np.arange(intStartT,intStopT+1)
+            
+        # save data
         cellRefT.append(vecTimestamps[vecSelectSamples]-dblStartT)
     
     
@@ -364,44 +376,59 @@ def getTsRefT(vecTimestamps,vecEventStartT,dblUseMaxDur):
     dblSampInterval = np.median(np.diff(vecTimestamps,axis=0));
     dblTol = dblSampInterval/100
     vecVals = np.sort(np.vstack(np.concatenate(cellRefT)))
-    vecTime = uniquetol(vecVals,dblTol)
+    vecTime = np.hstack(uniquetol(vecVals,dblTol))
     
     # return
     return vecTime
 
 # %% getInterpolatedTimeSeries
 def getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,vecTime):
-#   %getTraceInTrial Builds common timeframe
-#     %syntax: [vecRefT,matTracePerTrial] = getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,vecRefT)
-#     %    input:
-#     %    - vecSpikes; spike times (s)
-#     %    - vecTrialStarts: trial start times (s)
-#     %
-#     %Version history:
-#     %1.0 - June 26 2019
-#     %    Created by Jorrit Montijn
+#   getTraceInTrial Builds common timeframe
+#     syntax: vecTime,matTracePerTrial = getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,vecTime)
+#       input:
+#       - vecTimestamps; time stamps (s)
+#       - vecData; time-series data
+#       - vecEventStartT: trial start times (s)
+#       - dblUseMaxDur: window (s)
+#       - vecTime: reference time vector (s)
 #     
-#     %% assign data
-#     matTracePerTrial = nan(numel(vecEventStartT),numel(vecRefT));
-#     for intTrial=1:numel(vecEventStartT)
-#         %% get original times
-#         dblStartT = vecEventStartT(intTrial);
-#         intStartT = max([1 find(vecTimestamps > (dblStartT + vecRefT(1)),1) - 1]);
-#         intStopT = min([numel(vecTimestamps) find(vecTimestamps > (dblStartT + vecRefT(end)),1) + 1]);
-#         vecSelectSamples = intStartT:intStopT;
-#         
-#         %% get data
-#         vecUseTimes = vecTimestamps(vecSelectSamples);
-#         vecUseTrace = vecData(vecSelectSamples);
-#         
-#         %% interpolate
-#         vecUseInterpT = vecRefT+dblStartT;
-#         
-#         %get real fractions for training set
-#         matTracePerTrial(intTrial,:) = interp1(vecUseTimes,vecUseTrace,vecUseInterpT);
-#     end
-    vecTime = []
-    matTracePerTrial = []
+#     Version history:
+#     1.0 - June 26 2019
+#         Created by Jorrit Montijn
+
+
+    # assign data
+    vecTime = np.hstack((vecTime))
+    vecTimestamps = np.hstack((vecTimestamps))
+    vecData = np.hstack((vecData))
+    matTracePerTrial = np.zeros((len(vecEventStartT),len(vecTime)))
+    for intTrial,dblStartT in enumerate(vecEventStartT):
+        #original times
+        intBegin = findfirst(vecTimestamps > (dblStartT + vecTime[0]))
+        if intBegin is None:
+            raise Exception(
+                "getInterpolatedTimeSeries error - no time stamps exist after trial start")
+      
+        intStartT = np.max([0, intBegin - 1])
+        intEnd = findfirst(vecTimestamps > (dblStartT + vecTime[-1]))
+        if intEnd is None:
+            intStopT = len(vecTimestamps)
+        else:
+            intStopT = np.min([len(vecTimestamps),intEnd + 1])
+       
+        vecSelectSamples = np.arange(intStartT,intStopT)
+        
+        # get data
+        vecUseTimes = vecTimestamps[vecSelectSamples]
+        vecUseData = vecData[vecSelectSamples]
+        
+        #interpolate to
+        vecUseInterpT = vecTime+dblStartT
+        
+        #get interpolated data
+        matTracePerTrial[intTrial,:] = np.interp(vecUseInterpT,vecUseTimes,vecUseData)
+
+    # return
     return vecTime,matTracePerTrial
 
 def uniquetol(array_in,dblTol):

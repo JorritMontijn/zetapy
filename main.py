@@ -10,6 +10,7 @@ from scipy import stats
 from zetapy.dependencies import (calcZetaOne, getTempOffsetOne, flatten)
 from zetapy.ifr_dependencies import (getMultiScaleDeriv, getPeak, getOnset)
 from zetapy.plot_dependencies import calculatePeths
+from zetapy.ts_dependencies import getPseudoTimeSeries,getTsRefT,getInterpolatedTimeSeries,calcTsZetaOne
 
 
 # %% time-series zeta
@@ -69,7 +70,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
             dblD_InvSign; largest deviation of inverse sign to ZETA (i.e., -ZETA)
             dblT_InvSign; time corresponding to -ZETA
             intIdx_InvSign; entry corresponding to -ZETA
-            vecTimestamps: timestamps of event-centered time-series values (corresponding to vecRealDeviation)
+            vecRealTime: timestamps of event-centered time-series values (corresponding to vecRealDeviation)
             vecRealDeviation; temporal deviation vector of data
             vecRealFrac; cumulative distribution of spike times
             vecRealFracLinear; linear baseline of cumulative distribution
@@ -106,11 +107,12 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     dZETA['intIdx_InvSign'] = None
 
     # derived from calcZetaOne
-    dZETA['vecTimestamps'] = None
+    dZETA['vecRealTime'] = None
     dZETA['vecRealDeviation'] = None
     dZETA['vecRealFrac'] = None
     dZETA['vecRealFracLinear'] = None
-    dZETA['matRandDeviation'] = None
+    dZETA['cellRandTime'] = None
+    dZETA['cellRandDeviation'] = None
     # dZETA['dblZetaP'] = None #<-updates automatically
     # dZETA['dblZETA'] = None #<-updates automatically
     # dZETA['intZETAIdx'] = None #<-updates automatically
@@ -171,6 +173,8 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
         boolStopSupplied = False
         dblMeanZ = np.nan
         dblMeanP = np.nan
+        vecMu_Dur = []
+        vecMu_Pre = []
 
     # trial dur
     if dblUseMaxDur is None:
@@ -209,13 +213,17 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     # sampling interval
     dblSamplingInterval = np.median(np.diff(vecTime));
     
-    # %% get timeseries zeta
-    # [vecRefT,vecRealDiff,vecRealFrac,vecRealFracLinear,cellRandT,cellRandDiff,dblZetaP,dblZETA,intZETALoc] = ...
-    #     calcTsZetaOne(vecTime,vecValue,vecEventStarts,dblUseMaxDur,intResampNum,boolDirectQuantile,dblJitterSize);
+    # %% check data length
+    dblDataT0 = np.min(vecTime)
+    dblReqT0 = np.min(vecEventStarts) - dblJitterSize*dblUseMaxDur
+    if dblDataT0 > dblReqT0:
+        logging.warning("zetatstest: leading data preceding first event is insufficient for maximal jittering")
+        
+    dblDataT_end = np.max(vecTime)
+    dblReqT_end = np.max(vecEventStarts) + dblJitterSize*dblUseMaxDur + dblUseMaxDur
+    if dblDataT_end < dblReqT_end:
+        logging.warning("zetatstest: lagging data after last event is insufficient for maximal jittering")
     
-    # %get location
-    # dblMaxDTime = vecRefT(intZETALoc);
-    # dblD = vecRealDiff(intZETALoc);
     
     # %% calculate zeta
     dZETA_One = calcTsZetaOne(vecTime, vecValue, vecEventStarts, dblUseMaxDur, intResampNum,
@@ -223,35 +231,37 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 
     # update and unpack
     dZETA.update(dZETA_One)
-    # vecTimestamps = dZETA['vecTimestamps']
-    # vecRealDeviation = dZETA['vecRealDeviation']
-    # vecRealFrac = dZETA['vecRealFrac']
-    # vecRealFracLinear = dZETA['vecRealFracLinear']
-    # cellRandTime = dZETA['cellRandTime']
-    # cellRandDeviation = dZETA['cellRandDeviation']
-    # dblZetaP = dZETA['dblZetaP']
-    # dblZETA = dZETA['dblZETA']
-    # intZETAIdx = dZETA['intZETAIdx']
+    vecRealTime = dZETA['vecRealTime']
+    vecRealDeviation = dZETA['vecRealDeviation']
+    vecRealFrac = dZETA['vecRealFrac']
+    vecRealFracLinear = dZETA['vecRealFracLinear']
+    cellRandTime = dZETA['cellRandTime']
+    cellRandDeviation = dZETA['cellRandDeviation']
+    dblZetaP = dZETA['dblZetaP']
+    dblZETA = dZETA['dblZETA']
+    intZETAIdx = dZETA['intZETAIdx']
 
     # check if calculation is valid, otherwise return empty values
     if intZETAIdx is None:
-        logging.warning("zetatest: calculation failed, defaulting to p=1.0")
+        logging.warning("zetatstest: calculation failed, defaulting to p=1.0")
         return dblZetaP, dZETA
 
     # %% extract real outputs
     # get location
-    dblZETATime = vecSpikeT[intZETAIdx]
+    dblZETATime = vecRealTime[intZETAIdx]
     dblZETADeviation = vecRealDeviation[intZETAIdx]
     
     # find peak of inverse sign
     intIdx_InvSign = np.argmax(-np.sign(dblZETADeviation)*vecRealDeviation)
-    dblT_InvSign = vecSpikeT[intIdx_InvSign]
+    dblT_InvSign = vecRealTime[intIdx_InvSign]
     dblD_InvSign = vecRealDeviation[intIdx_InvSign]
 
     # %% calculate mean-rate difference
     # intMaxRep = size(vecEventStarts,1);
     # vecStimAct = zeros(intMaxRep,1);
     # vecBaseAct = zeros(intMaxRep,1);
+    if boolStopSupplied:
+        pass
     # if boolStopSupplied
     #     %pre-allocate
     #     vecEventStops = matEventTimes(:,2);
@@ -290,122 +300,29 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     #     dblMeanZ = -norminv(dblMeanP/2);
     # end
     
+    # %% build output structure
+    # fill dZETA
+    dZETA['dblZETADeviation'] = dblZETADeviation
+    dZETA['dblZETATime'] = dblZETATime
+    if boolStopSupplied:
+        dZETA['dblMeanZ'] = dblMeanZ
+        dZETA['dblMeanP'] = dblMeanP
+        dZETA['vecMu_Dur'] = vecMu_Dur
+        dZETA['vecMu_Pre'] = vecMu_Pre
+
+    # inverse-sign ZETA
+    dZETA['dblD_InvSign'] = dblD_InvSign
+    dZETA['dblT_InvSign'] = dblT_InvSign
+    dZETA['intIdx_InvSign'] = intIdx_InvSign
+    # window used for analysis
+    dZETA['dblUseMaxDur'] = dblUseMaxDur
+
     # %% plot
-    # if intPlot
-    #     %plot maximally 100 traces
-    #     intPlotIters = min([numel(cellRandDiff) 100]);
-        
-    #     %make maximized figure
-    #     figure
-    #     drawnow;
-    #     jFig = get(handle(gcf), 'JavaFrame');
-    #     jFig.setMaximized(true);
-    #     figure(gcf);
-    #     drawnow;
-        
-    #     if intPlot > 1
-    #         [vecRefT2,matTracePerTrial] = getTraceInTrial(vecTime,vecValue,vecEventStarts,dblSamplingInterval,dblUseMaxDur);
-    #         subplot(2,3,1)
-    #         imagesc(vecRefT2,1:size(matTracePerTrial,1),matTracePerTrial);
-    #         colormap(hot);
-    #         xlabel('Time after event (s)');
-    #         ylabel('Trial #');
-    #         title('Z-scored activation');
-    #         fixfig;
-    #         grid off;
-    #     end
-        
-    #     %plot
-    #     subplot(2,3,2)
-    #     sOpt = struct;
-    #     sOpt.handleFig =-1;
-    #     sOpt.vecWindow = [0 dblUseMaxDur];
-    #     [vecMean,vecSEM,vecWindowBinCenters] = doPEP(vecTime,vecValue,vecEventStarts(:,1),sOpt);
-    #     errorbar(vecWindowBinCenters,vecMean,vecSEM);
-    #     %ylim([0 max(get(gca,'ylim'))]);
-    #     title(sprintf('Mean value over trials'));
-    #     xlabel('Time after event (s)');
-    #     ylabel('Trace value');
-    #     fixfig
-        
-    #     subplot(2,3,3)
-    #     plot(vecRefT,vecRealFrac)
-    #     hold on
-    #     plot(vecRefT,vecRealFracLinear,'color',[0.5 0.5 0.5]);
-    #     hold off
-    #     title(sprintf('Real data'));
-    #     xlabel('Time after event (s)');
-    #     ylabel('Fractional position of value in trial');
-    #     fixfig
-        
-    #     subplot(2,3,4)
-    #     cla;
-    #     hold all
-    #     for intIter=1:intPlotIters
-    #         plot(cellRandT{intIter},cellRandDiff{intIter},'Color',[0.5 0.5 0.5]);
-    #     end
-    #     plot(vecRefT,vecRealDiff,'Color',lines(1));
-    #     hold off
-    #     xlabel('Time after event (s)');
-    #     ylabel('Offset of data from linear (s)');
-    #     if boolStopSupplied
-    #         title(sprintf('ZETA=%.3f (p=%.3f), z(mean)=%.3f (p=%.3f)',dblZETA,dblZetaP,dblMeanZ,dblMeanP));
-    #     else
-    #         title(sprintf('ZETA=%.3f (p=%.3f)',dblZETA,dblZetaP));
-    #     end
-    #     fixfig
-        
-    #     if intPlot > 1
-    #         %set tol
-    #         dblSampInterval = median(diff(vecTime));
-    #         dblTol = dblSampInterval/100;
-    #         vecRef2T = uniquetol(vecRefT,dblTol);
-            
-    #         %build interpolated data
-    #         [vecRef3T,matTracePerTrialSR] = getInterpolatedTimeSeries(vecTime,vecValue,vecEventStarts(:,1),dblUseMaxDur,vecRef2T);
-    #         indRemPoints = vecRef3T<0 | vecRef3T>dblUseMaxDur;
-    #         vecRef3T(indRemPoints) = [];
-    #         matTracePerTrialSR(:,indRemPoints)=[];
-    #         vecMeanTrace = nanmean(matTracePerTrialSR,1)';
-            
-    #         subplot(2,3,5)
-    #         imagesc(vecRef3T,1:size(matTracePerTrialSR,1),matTracePerTrialSR);
-    #         colormap(hot);
-    #         xlabel('Time after event (s)');
-    #         ylabel('Trial #');
-    #         fixfig;
-    #         grid off;
-            
-    #         subplot(2,3,6)
-    #         plot(vecRef3T,vecMeanTrace);
-    #         xlabel('Time after event (s)');
-    #         ylabel('Data value');
-    #         fixfig;
-    #         grid off;
-    #     end
-    # end
-    
-    # %% build optional output structure
-    # if nargin > 1
-    #     sZETA = struct;
-    #     sZETA.dblZETA = dblZETA;
-    #     sZETA.dblZetaP = dblZetaP;
-    #     sZETA.dblD = dblD;
-    #     sZETA.dblPeakT = dblMaxDTime;
-    #     sZETA.intPeakIdx = intZETALoc;
-    #     if boolStopSupplied
-    #         sZETA.dblMeanZ = dblMeanZ;
-    #         sZETA.dblMeanP = dblMeanP;
-    #         sZETA.vecMu_Dur = vecMu_Dur;
-    #         sZETA.vecMu_Pre = vecMu_Pre;
-    #     end
-    #     sZETA.vecTime = vecTime;
-    #     sZETA.vecD = vecRealDiff;
-    #     sZETA.cellRandT = cellRandT;
-    #     sZETA.cellRandDiff = cellRandDiff;
-    #     sZETA.vecMeanBase = vecStimAct;
-    #     sZETA.vecMeanStim = vecBaseAct;
-    # end
+    if intPlot > 0:
+        plottszeta(vecTime, vecValue, vecEventStarts, dZETA)
+
+    # %% return
+    return dblZetaP, dZETA
 
 # %% zetatest
 
@@ -1051,3 +968,100 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
     
     f.tight_layout()
     plt.show()
+
+def plottszeta(vecTime, vecValue, vecEventStarts, dZETA):
+    pass
+    # %% plot
+    # if intPlot
+    #     %plot maximally 100 traces
+    #     intPlotIters = min([numel(cellRandDiff) 100]);
+        
+    #     %make maximized figure
+    #     figure
+    #     drawnow;
+    #     jFig = get(handle(gcf), 'JavaFrame');
+    #     jFig.setMaximized(true);
+    #     figure(gcf);
+    #     drawnow;
+        
+    #     if intPlot > 1
+    #         [vecRefT2,matTracePerTrial] = getTraceInTrial(vecTime,vecValue,vecEventStarts,dblSamplingInterval,dblUseMaxDur);
+    #         subplot(2,3,1)
+    #         imagesc(vecRefT2,1:size(matTracePerTrial,1),matTracePerTrial);
+    #         colormap(hot);
+    #         xlabel('Time after event (s)');
+    #         ylabel('Trial #');
+    #         title('Z-scored activation');
+    #         fixfig;
+    #         grid off;
+    #     end
+        
+    #     %plot
+    #     subplot(2,3,2)
+    #     sOpt = struct;
+    #     sOpt.handleFig =-1;
+    #     sOpt.vecWindow = [0 dblUseMaxDur];
+    #     [vecMean,vecSEM,vecWindowBinCenters] = doPEP(vecTime,vecValue,vecEventStarts(:,1),sOpt);
+    #     errorbar(vecWindowBinCenters,vecMean,vecSEM);
+    #     %ylim([0 max(get(gca,'ylim'))]);
+    #     title(sprintf('Mean value over trials'));
+    #     xlabel('Time after event (s)');
+    #     ylabel('Trace value');
+    #     fixfig
+        
+    #     subplot(2,3,3)
+    #     plot(vecRefT,vecRealFrac)
+    #     hold on
+    #     plot(vecRefT,vecRealFracLinear,'color',[0.5 0.5 0.5]);
+    #     hold off
+    #     title(sprintf('Real data'));
+    #     xlabel('Time after event (s)');
+    #     ylabel('Fractional position of value in trial');
+    #     fixfig
+        
+    #     subplot(2,3,4)
+    #     cla;
+    #     hold all
+    #     for intIter=1:intPlotIters
+    #         plot(cellRandT{intIter},cellRandDiff{intIter},'Color',[0.5 0.5 0.5]);
+    #     end
+    #     plot(vecRefT,vecRealDiff,'Color',lines(1));
+    #     hold off
+    #     xlabel('Time after event (s)');
+    #     ylabel('Offset of data from linear (s)');
+    #     if boolStopSupplied
+    #         title(sprintf('ZETA=%.3f (p=%.3f), z(mean)=%.3f (p=%.3f)',dblZETA,dblZetaP,dblMeanZ,dblMeanP));
+    #     else
+    #         title(sprintf('ZETA=%.3f (p=%.3f)',dblZETA,dblZetaP));
+    #     end
+    #     fixfig
+        
+    #     if intPlot > 1
+    #         %set tol
+    #         dblSampInterval = median(diff(vecTime));
+    #         dblTol = dblSampInterval/100;
+    #         vecRef2T = uniquetol(vecRefT,dblTol);
+            
+    #         %build interpolated data
+    #         [vecRef3T,matTracePerTrialSR] = getInterpolatedTimeSeries(vecTime,vecValue,vecEventStarts(:,1),dblUseMaxDur,vecRef2T);
+    #         indRemPoints = vecRef3T<0 | vecRef3T>dblUseMaxDur;
+    #         vecRef3T(indRemPoints) = [];
+    #         matTracePerTrialSR(:,indRemPoints)=[];
+    #         vecMeanTrace = nanmean(matTracePerTrialSR,1)';
+            
+    #         subplot(2,3,5)
+    #         imagesc(vecRef3T,1:size(matTracePerTrialSR,1),matTracePerTrialSR);
+    #         colormap(hot);
+    #         xlabel('Time after event (s)');
+    #         ylabel('Trial #');
+    #         fixfig;
+    #         grid off;
+            
+    #         subplot(2,3,6)
+    #         plot(vecRef3T,vecMeanTrace);
+    #         xlabel('Time after event (s)');
+    #         ylabel('Data value');
+    #         fixfig;
+    #         grid off;
+    #     end
+    # end
