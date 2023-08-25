@@ -35,5 +35,5 @@ vecData = conv(vecData, vecFilt, 'valid');
 
 
 %% test getTsRefT
-# not the same yet
+%passes
 vecTime = getTsRefT(vecPseudoTime,vecPseudoEventT,dblWindowDur)

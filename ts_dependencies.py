@@ -343,24 +343,24 @@ def getTsRefT(vecTimestamps,vecEventStartT,dblUseMaxDur):
     vecEventStartT = np.sort(vecEventStartT)
     intTimeNum = len(vecTimestamps)-1
     
-    
+    #intTrial = -1
     #build common timeframe
     cellRefT = []
     for intTrial,dblStartT in enumerate(vecEventStartT):
-       # %%
-       #intTrial = intTrial + 1
-       #dblStartT = vecEventStartT[intTrial]
-       # get original times
-       dblStopT = dblStartT+dblUseMaxDur
-       intStartT = np.max([0,findfirst(vecTimestamps > dblStartT) - 1])
-       intStopT = np.min([intTimeNum,findfirst(vecTimestamps > dblStopT)])
-       vecSelectSamples = np.arange(intStartT,intStopT+1)
-       
-       # get data
-       cellRefT.append(vecTimestamps[vecSelectSamples]-dblStartT)
+        # %%
+        #intTrial = intTrial + 1
+        #dblStartT = vecEventStartT[intTrial]
+        # get original times
+        dblStopT = dblStartT+dblUseMaxDur
+        intStartT = np.max([0,findfirst(vecTimestamps > dblStartT) - 1])
+        intStopT = np.min([intTimeNum,findfirst(vecTimestamps > dblStopT)])
+        vecSelectSamples = np.arange(intStartT,intStopT+1)
+        
+        # get data
+        cellRefT.append(vecTimestamps[vecSelectSamples]-dblStartT)
     
     
-    #set tol
+    # %% set tol
     dblSampInterval = np.median(np.diff(vecTimestamps,axis=0));
     dblTol = dblSampInterval/100
     vecVals = np.sort(np.vstack(np.concatenate(cellRefT)))
@@ -419,4 +419,4 @@ def uniquetol(array_in,dblTol):
         array with unique values within tolerance.
 
     '''
-    return (np.unique(np.floor(array_in/dblTol).astype(int))+0.5)*dblTol
+    return (np.unique(np.floor(array_in/dblTol).astype(int)))*dblTol
