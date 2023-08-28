@@ -18,12 +18,31 @@ from zetapy.dependencies import calcZetaOne,getZetaP,getGumbel,getTempOffsetOne,
 # %% set random seed
 #passes, same as matlab
 np.random.seed(1)
-dblEndT = 10.0
-vecSpikeTimes = dblEndT*np.sort(np.random.rand(100,1),axis=0) #the same
-vecEventTimes = np.arange(0,dblEndT,1.0) #the same
+dblEndT = 12.9
+dblStartT = -2.9
+dblTotDur = dblEndT-dblStartT
+dblWindowDur = 1.0
+dblStimDur = 0.5
+dblSamplingRate = 25.0 #Hz
+dblSampleDur = 1/dblSamplingRate
+
+vecSpikeTimes = dblTotDur*np.sort(np.random.rand(1000,1),axis=0) + dblStartT #the same
+vecEventTimes = np.arange(0,10,dblWindowDur) #the same
+
+#add stimulus spikes
+vecSpikeTimesOn = dblTotDur*np.sort(np.random.rand(1000,1),axis=0) + dblStartT #the same
+indKeepSpikesOn = np.full(vecSpikeTimesOn.shape, False)
+vecEventTimesOff = vecEventTimes + dblStimDur
+for intTrial,dblTrialStartT in enumerate(vecEventTimes):
+    dblTrialStopT = vecEventTimesOff[intTrial]
+    indKeepSpikesOn[np.logical_and(vecSpikeTimesOn > dblTrialStartT,vecSpikeTimesOn < dblTrialStopT)] = True
+
+vecSpikeTimesOn = vecSpikeTimesOn[indKeepSpikesOn]
+vecSpikeTimes = np.sort(np.concatenate((vecSpikeTimes[:,0],vecSpikeTimesOn)))
 
 # %% test getPseudoSpikeVectors
 #passes, same as matlab
+np.random.seed(1)
 dblWindowDur = 1.0;
 boolDiscardEdges = False;
 
@@ -31,6 +50,7 @@ vecPseudoSpikeTimes,vecPseudoEventT = getPseudoSpikeVectors(vecSpikeTimes,vecEve
 
 # %% test gettempoffsetone
 #passes, same as matlab
+np.random.seed(1)
 vecRealDeviation, vecRealFrac, vecRealFracLinear, vecSpikeT = getTempOffsetOne(vecPseudoSpikeTimes, vecPseudoEventT, dblWindowDur)
 
 # %% test getzetaone
@@ -44,11 +64,15 @@ dZETA_One = calcZetaOne(vecSpikeTimes, vecEventTimes, dblWindowDur, intResampNum
 vecSpikeT_cZO = np.reshape(np.array(dZETA_One['vecSpikeT']),(-1,1)) # first value is missing
 vecSpikeT_cZO = dZETA_One['vecSpikeT']
 vecRealDeviation_cZO = dZETA_One['vecRealDeviation']
-plt.plot(vecSpikeT_cZO,vecRealDeviation_cZO)
+#plt.plot(vecSpikeT_cZO,vecRealDeviation_cZO)
 
 # %% test zetatest
 #passes, same as matlab
 np.random.seed(1)
 p,dZETA,dRate,vecLatencies = zetatest(vecSpikeTimes,vecEventTimes)
 
-print(p) #not the same
+# %% zetatest
+#with ttest
+arrEventTimes = np.concatenate((vecEventTimes.reshape(-1,1),vecEventTimes.reshape(-1,1)+dblStimDur),axis=1)
+p,dZETA,dRate,vecLatencies =  zetatest(vecSpikeTimes, arrEventTimes,
+             dblUseMaxDur=dblWindowDur, intResampNum=intResampNum, intPlot=1, dblJitterSize=2.0, boolDirectQuantile=False, boolReturnRate=True)

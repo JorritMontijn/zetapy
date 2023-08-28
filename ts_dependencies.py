@@ -172,12 +172,12 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
     '''
     # %% prep
     # ensure sorting and alignment
-    vecTimestamps = np.reshape(vecTimestamps, (-1, 1))
-    vecData = np.reshape(vecData, (-1, 1))
+    vecTimestamps = np.squeeze(np.vstack(vecTimestamps))
+    vecData = np.squeeze(np.vstack(vecData))
     vecReorder = np.argsort(vecTimestamps, axis=0)
     vecTimestamps = vecTimestamps[vecReorder]
     vecData = vecData[vecReorder]
-    vecEventTimes = np.sort(np.reshape(vecEventTimes, (-1, 1)), axis=0)
+    vecEventTimes = np.squeeze(np.sort(np.vstack(vecEventTimes), axis=0))
 
     # %% pre-allocate
     intSamples = vecTimestamps.size
@@ -192,9 +192,9 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
     intLastUsedSample = 0;
     intFirstSample = None
     
-    # run
+    # %% run
     for intTrial, dblEventT in enumerate(vecEventTimes):
-        # %%
+        ## %%
         #intTrial = intTrial + 1
         #dblEventT = vecEventTimes[intTrial]
         # get eligible samples
@@ -209,7 +209,7 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
             intEndSample = len(vecTimestamps)
 
         if intStartSample is None or intEndSample is None:
-            vecUseSamples = np.empty(0)
+            vecUseSamples = None
         else:
             vecEligibleSamples = np.arange(intStartSample, intEndSample)
             indUseSamples = np.logical_and(vecEligibleSamples >= 0, vecEligibleSamples < intSamples)
@@ -240,8 +240,8 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
         
         # make local pseudo event time
         if vecUseSamples.size == 0:
-            vecLocalPseudoT = np.empty(0)
-            vecLocalPseudoV = np.empty(0)
+            vecLocalPseudoT = None
+            vecLocalPseudoV = None
             dblPseudoEventT = dblEventT - vecTimestamps[intLastUsedSample] + dblStartNextAtT
         else:
             intLastUsedSample = vecUseSamples[-1]
@@ -260,10 +260,11 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
             intFirstSample = vecUseSamples[0]
             dblPseudoT0 = dblPseudoEventT
         
-        # assign data for this trial
-        cellPseudoTime.append(vecLocalPseudoT)
-        cellPseudoData.append(vecLocalPseudoV)
-        vecPseudoEventT[intTrial] = dblPseudoEventT
+        if vecLocalPseudoT is not None:
+            # assign data for this trial
+            cellPseudoTime.append(vecLocalPseudoT)
+            cellPseudoData.append(vecLocalPseudoV)
+            vecPseudoEventT[intTrial] = dblPseudoEventT
 
     # %% add beginning
     dblT1 = vecTimestamps[intFirstSample];
@@ -322,7 +323,7 @@ def getTimeseriesOffsetOne(vecTimestamps,vecData, vecEventStartT, dblUseMaxDur):
     vecTime = getTsRefT(vecTimestamps,vecEventStartT,dblUseMaxDur)
     
     #build interpolated data
-    vecTime,matTracePerTrial = getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,vecTime)
+    vecTime,matTracePerTrial = getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,vecTime)
     indKeepPoints = np.logical_and(vecTime>=0, vecTime<=dblUseMaxDur)
     vecTime = vecTime[indKeepPoints]
     matTracePerTrial = matTracePerTrial[:,indKeepPoints]
@@ -382,35 +383,36 @@ def getTsRefT(vecTimestamps,vecEventStartT,dblUseMaxDur):
     return vecTime
 
 # %% getInterpolatedTimeSeries
-def getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,vecTime):
-#   getTraceInTrial Builds common timeframe
-#     syntax: vecTime,matTracePerTrial = getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,vecTime)
-#       input:
-#       - vecTimestamps; time stamps (s)
-#       - vecData; time-series data
-#       - vecEventStartT: trial start times (s)
-#       - dblUseMaxDur: window (s)
-#       - vecTime: reference time vector (s)
-#     
-#     Version history:
-#     1.0 - June 26 2019
-#         Created by Jorrit Montijn
-
+def getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,vecRefTime):
+    '''
+   getInterpolatedTimeSeries Builds common timeframe
+     syntax: vecRefTime,matTracePerTrial = getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,vecRefTime)
+       input:
+       - vecTimestamps; time stamps (s)
+       - vecData; time-series data
+       - vecEventStartT: trial start times (s)
+       - dblUseMaxDur: window (s)
+       - vecTime: reference time vector (s)
+     
+     Version history:
+     1.0 - June 26 2019
+         Created by Jorrit Montijn
+         '''
 
     # assign data
-    vecTime = np.hstack((vecTime))
+    vecRefTime = np.hstack((vecRefTime))
     vecTimestamps = np.hstack((vecTimestamps))
     vecData = np.hstack((vecData))
-    matTracePerTrial = np.zeros((len(vecEventStartT),len(vecTime)))
+    matTracePerTrial = np.zeros((len(vecEventStartT),len(vecRefTime)))
     for intTrial,dblStartT in enumerate(vecEventStartT):
         #original times
-        intBegin = findfirst(vecTimestamps > (dblStartT + vecTime[0]))
+        intBegin = findfirst(vecTimestamps > (dblStartT + vecRefTime[0]))
         if intBegin is None:
             raise Exception(
                 "getInterpolatedTimeSeries error - no time stamps exist after trial start")
       
         intStartT = np.max([0, intBegin - 1])
-        intEnd = findfirst(vecTimestamps > (dblStartT + vecTime[-1]))
+        intEnd = findfirst(vecTimestamps > (dblStartT + vecRefTime[-1]))
         if intEnd is None:
             intStopT = len(vecTimestamps)
         else:
@@ -423,14 +425,15 @@ def getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,
         vecUseData = vecData[vecSelectSamples]
         
         #interpolate to
-        vecUseInterpT = vecTime+dblStartT
+        vecUseInterpT = vecRefTime+dblStartT
         
         #get interpolated data
         matTracePerTrial[intTrial,:] = np.interp(vecUseInterpT,vecUseTimes,vecUseData)
 
     # return
-    return vecTime,matTracePerTrial
+    return vecRefTime,matTracePerTrial
 
+# %% uniquetol
 def uniquetol(array_in,dblTol):
     '''
     array_unique = uniquetol(array_in,dblTol)

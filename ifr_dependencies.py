@@ -14,10 +14,10 @@ from scipy import stats, interpolate, signal
 
 
 def getMultiScaleDeriv(vecT, vecV,
-                       dblSmoothSd=0.0, dblMinScale=None, dblBase=1.5, dblMeanRate=1.0, dblUseMaxDur=None, boolParallel=False):
+                       dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5, dblMeanRate=1.0, dblUseMaxDur=None, boolParallel=False):
     """"Returns multi-scale derivative of the deviation vector; i.e., the ZETA-derived instantaneous firing rate
        [vecRate,dMSD] = getMultiScaleDeriv(vecT, vecV,
-                              dblSmoothSd=0.0, dblMinScale=None, dblBase=1.5, dblMeanRate=1.0, dblUseMaxDur=None, boolParallel=False)
+                              dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5, dblMeanRate=1.0, dblUseMaxDur=None, boolParallel=False)
 
         Required input:
             - vecT [N x 1]: timestamps (e.g., spike times)
