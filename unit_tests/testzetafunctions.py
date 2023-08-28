@@ -12,7 +12,7 @@ from math import pi, sqrt, exp
 from collections.abc import Iterable
 import matplotlib.pyplot as plt
 
-from zetapy import zetatest
+from zetapy import zetatest,ifr,getZeta
 from zetapy.dependencies import calcZetaOne,getZetaP,getGumbel,getTempOffsetOne,getSpikeT,getPseudoSpikeVectors,flatten
 
 # %% set random seed
@@ -76,3 +76,13 @@ p,dZETA,dRate,vecLatencies = zetatest(vecSpikeTimes,vecEventTimes)
 arrEventTimes = np.concatenate((vecEventTimes.reshape(-1,1),vecEventTimes.reshape(-1,1)+dblStimDur),axis=1)
 p,dZETA,dRate,vecLatencies =  zetatest(vecSpikeTimes, arrEventTimes,
              dblUseMaxDur=dblWindowDur, intResampNum=intResampNum, intPlot=1, dblJitterSize=2.0, boolDirectQuantile=False, boolReturnRate=True)
+
+# %% ifr
+vecTime,vecRate,dIFR = ifr(vecSpikeTimes, arrEventTimes,
+        dblUseMaxDur=dblWindowDur, dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5)
+
+# %% legacy
+pZeta0,vecLatencies0,dZeta0,dRate0 = getZeta(vecSpikeTimes, arrEventTimes, 
+                                             dblUseMaxDur=dblWindowDur, intResampNum=intResampNum, intPlot=1,
+            intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf),
+            boolReturnRate=True, boolReturnZETA=True)

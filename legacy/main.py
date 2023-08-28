@@ -263,9 +263,9 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         ax4.plot(dblMaxDTimeInvSign, vecRealDiff[intPeakLocInvSign], 'b*')
         ax4.set(xlabel='Time from event (s)', ylabel='Offset of data from linear (s)')
         if boolStopSupplied:
-            ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), d(Hz)={dblMeanD:.3f} (p={dblMeanP:.3f})')
+            ax4.set(title=f'Legacy ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), d(Hz)={dblMeanD:.3f} (p={dblMeanP:.3f})')
         else:
-            ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f})')
+            ax4.set(title=f'Legacy ZETA={dblZETA:.3f} (p={dblZetaP:.3f})')
 
     else:
         ax5, ax6 = [], []

@@ -722,10 +722,10 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
 
 def ifr(vecSpikeTimes, vecEventTimes,
-        dblUseMaxDur=None, dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5, intPlot=0, boolVerbose=True, boolParallel=False):
+        dblUseMaxDur=None, dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5, boolParallel=False):
     """Returns instantaneous firing rates. Syntax:
         ifr(vecSpikeTimes,vecEventTimes,
-               dblUseMaxDur=None, dblSmoothSd=2, dblMinScale=None, dblBase=1.5, intPlot=0, boolVerbose=True)
+               dblUseMaxDur=None, dblSmoothSd=2, dblMinScale=None, dblBase=1.5)
 
     Required input:
         - vecSpikeTimes [S x 1]: spike times (s)
@@ -737,8 +737,6 @@ def ifr(vecSpikeTimes, vecEventTimes,
         - dblSmoothSd: float, Gaussian SD of smoothing kernel (in # of bins) [default: 2]
         - dblMinScale: minimum derivative scale in seconds [default: round(log(1/1000) / log(dblBase))]
         - dblBase: critical value for locally dynamic derivative [default: 1.5]
-        - intPlot: integer, plotting switch (0=none, 1=plot)
-        - boolVerbose: boolean, switch to print messages
 
     Outputs:
         - vecTime: array with timestamps
