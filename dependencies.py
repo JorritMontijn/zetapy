@@ -344,7 +344,7 @@ def getPseudoSpikeVectors(vecSpikeTimes, vecEventTimes, dblWindowDur, boolDiscar
             intEndSample = len(vecSpikeTimes)
 
         if intStartSample is None or intEndSample is None:
-            vecUseSamples = np.empty(0)
+            vecUseSamples = np.empty(0, dtype=int)
         else:
             intEndSample = intEndSample - 1
             vecEligibleSamples = np.arange(intStartSample, intEndSample+1)
@@ -359,8 +359,9 @@ def getPseudoSpikeVectors(vecSpikeTimes, vecEventTimes, dblWindowDur, boolDiscar
                 vecUseSamples = np.arange(vecUseSamples[0], intSamples)
 
         # add spikes
-        vecAddT = vecSpikeTimes[vecUseSamples]
-        indOverlap = vecUseSamples <= intLastUsedSample
+        if vecUseSamples.size > 0:
+            vecAddT = vecSpikeTimes[vecUseSamples]
+            indOverlap = vecUseSamples <= intLastUsedSample
 
         # get event t
         if intTrial == 0:
@@ -368,8 +369,10 @@ def getPseudoSpikeVectors(vecSpikeTimes, vecEventTimes, dblWindowDur, boolDiscar
         else:
             if intTrial > 0 and dblWindowDur > (dblEventT - vecEventTimes[intTrial-1]):
                 # remove spikes from overlapping epochs
-                vecUseSamples = vecUseSamples[~indOverlap]
-                vecAddT = vecSpikeTimes[vecUseSamples]
+                if vecUseSamples.size > 0:
+                    vecUseSamples = vecUseSamples[~indOverlap]
+                    vecAddT = vecSpikeTimes[vecUseSamples]
+                
                 dblPseudoEventT = dblPseudoEventT + dblEventT - vecEventTimes[intTrial-1]
             else:
                 dblPseudoEventT = dblPseudoEventT + dblWindowDur
