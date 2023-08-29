@@ -922,7 +922,7 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
     else:
         vecSpikeT_reduced = vecSpikeTimes
 
-    for i, t in enumerate(vecEventStarts[:intPlotRandSamples]):
+    for i, t in enumerate(vecEventStarts):
         idx = np.bitwise_and(vecSpikeT_reduced >= t, vecSpikeT_reduced <= t + dblUseMaxDur)
         event_spks = vecSpikeT_reduced[idx]
         ax1.vlines(event_spks - t, i + 1, i, color='k', lw=0.3)
@@ -961,6 +961,17 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
         strLabelY = 'Spiking rate (Hz)'
     ax4.set(xlabel='Time after event (s)', ylabel=strLabelY, title='IFR (instantaneous firing rate)')
     
+    # plot onsets
+    vecLatencies = dZETA['vecLatencies']
+    vecLatencyVals = dZETA['vecLatencyVals']
+    if len(vecLatencies) > 2 and vecLatencies[2] is not None and ~np.isnan(vecLatencies[2]):
+        #plot peak time
+        ax4.plot(vecLatencies[2], vecLatencyVals[2], 'gx')
+        
+    if len(vecLatencies) > 3 and vecLatencies[3] is not None and ~np.isnan(vecLatencies[3]):
+        #plot onset time
+        ax4.plot(vecLatencies[3], vecLatencyVals[3], 'rx')
+        
     f.tight_layout()
     plt.show()
 
