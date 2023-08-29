@@ -8,13 +8,15 @@ dblWindowDur = 1.0;
 dblStimDur = 0.5;
 dblSamplingRate = 25.0; %Hz
 dblSampleDur = 1/dblSamplingRate;
+dblBaseSpikingRate = 0.1;
+dblStimSpikingRate = 1.0;
 
-vecSpikeTimes = dblTotDur*sort(rand(1000,1)) + dblStartT;
+vecSpikeTimes = dblTotDur*sort(rand(round(dblBaseSpikingRate*dblTotDur),1)) + dblStartT;
 vecEventTimes = (0:dblWindowDur:9)';
 
 %add stimulus-induced spikes as an elevated rate during stimulus presentation; literally the most
 %advantageous situation for a t-test to pick up
-vecSpikeTimesOn = dblTotDur*sort(rand(1000,1)) + dblStartT;
+vecSpikeTimesOn = dblTotDur*sort(rand(round(dblStimSpikingRate*dblTotDur),1)) + dblStartT;
 indKeepSpikesOn = false(size(vecSpikeTimesOn));
 vecEventTimesOff = vecEventTimes + dblStimDur;
 for intTrial = 1:numel(vecEventTimes)

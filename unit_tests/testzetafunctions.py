@@ -25,12 +25,14 @@ dblWindowDur = 1.0
 dblStimDur = 0.5
 dblSamplingRate = 25.0 #Hz
 dblSampleDur = 1/dblSamplingRate
+dblBaseSpikingRate = 1.0
+dblStimSpikingRate = 10.0
 
-vecSpikeTimes = dblTotDur*np.sort(np.random.rand(1000,1),axis=0) + dblStartT #the same
+vecSpikeTimes = dblTotDur*np.sort(np.random.rand(int(dblBaseSpikingRate*dblTotDur),1),axis=0) + dblStartT #the same
 vecEventTimes = np.arange(0,10,dblWindowDur) #the same
 
 #add stimulus spikes
-vecSpikeTimesOn = dblTotDur*np.sort(np.random.rand(1000,1),axis=0) + dblStartT #the same
+vecSpikeTimesOn = dblTotDur*np.sort(np.random.rand(int(dblStimSpikingRate*dblTotDur),1),axis=0) + dblStartT #the same
 indKeepSpikesOn = np.full(vecSpikeTimesOn.shape, False)
 vecEventTimesOff = vecEventTimes + dblStimDur
 for intTrial,dblTrialStartT in enumerate(vecEventTimes):

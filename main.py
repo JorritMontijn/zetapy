@@ -671,7 +671,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         dblMeanRate = vecSpikeT.size/(dblUseMaxDur*vecEventStarts.size)
         vecRate, dRate = getMultiScaleDeriv(vecSpikeT, vecRealDeviation,
                                             dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur, boolParallel=boolParallel)
-
+        
         # %% calculate IFR statistics
         if vecRate is not None and intLatencyPeaks > 0:
             # get IFR peak
@@ -679,17 +679,19 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             dRate.update(dPeak)
             if dRate['dblPeakTime'] is not None and ~np.isnan(dRate['dblPeakTime']):
                 # assign array data
+                intZetaIdxRate = min(max(0,intZETAIdx-1),len(vecRate)-1)
+                intZetaIdxInvRate = min(max(0,intIdx_InvSign-1),len(vecRate)-1)
                 if intLatencyPeaks > 3:
                     # get onset
                     dOnset = getOnset(vecRate, dRate['vecT'], dRate['dblPeakTime'], tplRestrictRange)
                     dRate['dblOnset'] = dOnset['dblOnset']
                     vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], dOnset['dblOnset']]
-                    vecLatencyVals = [vecRate[intZETAIdx], vecRate[intIdx_InvSign],
+                    vecLatencyVals = [vecRate[intZetaIdxRate], vecRate[intZetaIdxInvRate],
                                       vecRate[dPeak['intPeakLoc']], dOnset['dblValue']]
                 else:
                     dRate['dblOnset'] = None
                     vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], None]
-                    vecLatencyVals = [vecRate[intZETAIdx], vecRate[intIdx_InvSign], vecRate[dPeak['intPeakLoc']], None]
+                    vecLatencyVals = [vecRate[intZetaIdxRate], vecRate[intZetaIdxInvRate], vecRate[dPeak['intPeakLoc']], None]
 
     # %% build output dictionary
     # fill dZETA
