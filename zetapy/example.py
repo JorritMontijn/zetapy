@@ -171,6 +171,7 @@ print(f"\nDefault parameters (elapsed time: {dblElapsedT3:.2f} s):\ntime-series 
 # set random seed
 np.random.seed(1)
 t = time.time()
+
 # run test
 print('\nRunning time-series zeta-test with specified parameters; This will take around 40 seconds\n')
 dblTsZetaP2, dZetaTs = zetatstest(vecTimestamps, vecData, arrEventTimesTs,

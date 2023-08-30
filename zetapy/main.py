@@ -327,6 +327,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
              intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf),
              boolStitch=True, boolDirectQuantile=False,
              boolReturnRate=False, boolVerbose=False):
+    
     """
     Calculates neuronal responsiveness index ZETA.
 
