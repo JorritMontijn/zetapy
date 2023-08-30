@@ -325,6 +325,7 @@ def getOnset(vecData, vecT, dblPeakTime=None, tplRestrictRange=None):
     Version history:
     1.0 - June 19, 2020 Created by Jorrit Montijn, Translated to Python by Alexander Heimel
     2.0 - August 22, 2023 Updated translation by JM
+    2.0.1 - August 20 2023, Bug fix for peak time definition [by JM]
     """
 
     # check input
@@ -339,9 +340,14 @@ def getOnset(vecData, vecT, dblPeakTime=None, tplRestrictRange=None):
     # find peak if none supplied
     if dblPeakTime is None:
         intPeakIdx = np.argmax(vecDataCropped)
-        dblPeakTime = vecT[intPeakIdx]
+        dblPeakTime = vecCropT[intPeakIdx]
     else:
         intPeakIdx = findfirst(vecCropT > dblPeakTime)
+        if intPeakIdx is None:
+            logging.warning(
+                "getOnset:InvalidPeakTime: Supplied peak was invalid; taking max value of cropped data")
+            intPeakIdx = np.argmax(vecDataCropped)
+            dblPeakTime = vecCropT[intPeakIdx]
 
     dblPeakValue = vecDataCropped[intPeakIdx]
 
@@ -361,11 +367,11 @@ def getOnset(vecData, vecT, dblPeakTime=None, tplRestrictRange=None):
         dblValue = vecDataCropped[intOnsetIdx]
 
     # return
-    dPeak = dict()
-    dPeak['dblOnset'] = dblOnset
-    dPeak['dblValue'] = dblValue
-    dPeak['dblBaseValue'] = dblBaseValue
-    dPeak['dblPeakTime'] = dblPeakTime
-    dPeak['dblPeakValue'] = dblPeakValue
+    dOnset = dict()
+    dOnset['dblOnset'] = dblOnset
+    dOnset['dblValue'] = dblValue
+    dOnset['dblBaseValue'] = dblBaseValue
+    dOnset['dblPeakTime'] = dblPeakTime
+    dOnset['dblPeakValue'] = dblPeakValue
 
-    return dPeak
+    return dOnset
