@@ -95,11 +95,8 @@ intResampNum = 50
 # what size of jittering do we want? (multiple of dblUseMaxDur; default is 2.0)
 dblJitterSize = 2.0
 
-# Do we want to plot the results (0=no, 1=yes)
-intPlot = 1
-
-# How many latencies do we want to compute? 1=ZETA, 2=-ZETA, 3=peak, 4=first crossing of peak half-height
-intLatencyPeaks = 4
+# Do we want to plot the results?
+boolPlot = True
 
 # do we want to restrict the peak detection to for example the time during stimulus?
 # Then put (0 1) here.
@@ -117,8 +114,7 @@ dblZetaP, dZETA, dRate = zetatest(vecSpikeTimes1, arrEventTimes,
                                                 dblUseMaxDur=dblUseMaxDur,
                                                 intResampNum=intResampNum,
                                                 dblJitterSize=dblJitterSize,
-                                                intPlot=intPlot,
-                                                intLatencyPeaks=intLatencyPeaks,
+                                                boolPlot=boolPlot,
                                                 tplRestrictRange=tplRestrictRange,
                                                 boolReturnRate=boolReturnRate)
 
@@ -126,9 +122,11 @@ dblElapsedT2 = time.time() - t
 print(f"\nSpecified parameters (elapsed time: {dblElapsedT2:.2f} s): \
       \nzeta-test p-value: {dblZetaP}\nt-test p-value:{dZETA['dblMeanP']}")
 
+
 # Note on the latencies: while the peaks of ZETA and -ZETA can be useful for diagnostic purposes,
 # they are difficult to interpret, so we suggest sticking to the peak time (vecLatencies[2]),
 # which is more easily interpretable. Please read the paper for more information.
+vecLatencies = dZETA['vecLatencies']
 
 # %% run the time-series zeta-test
 # take subselection of data
@@ -175,7 +173,7 @@ t = time.time()
 # run test
 print('\nRunning time-series zeta-test with specified parameters; This will take around 40 seconds\n')
 dblTsZetaP2, dZetaTs = zetatstest(vecTimestamps, vecData, arrEventTimesTs,
-                                  dblUseMaxDur=None, intResampNum=100, intPlot=1,
+                                  dblUseMaxDur=None, intResampNum=100, boolPlot=True,
                                   dblJitterSize=2.0, boolDirectQuantile=False)
 
 dblElapsedT4 = time.time() - t

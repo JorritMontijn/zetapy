@@ -321,7 +321,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 
 def zetatest(vecSpikeTimes, arrEventTimes,
              dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
-             intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
+             tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
              boolDirectQuantile=False, boolReturnRate=False):
     
     """
@@ -334,7 +334,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     Syntax:
     dblZetaP,dZETA,dRate,vecLatencies = zetatest(vecSpikeTimes,arrEventTimes,
                                                    dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
-                                                   intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
+                                                   tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
                                                    boolDirectQuantile=False, boolReturnRate=False):
 
     Parameters
@@ -552,14 +552,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         dblJitterSize = np.float64(dblJitterSize)
         assert dblJitterSize.size == 1 and dblJitterSize > 0, "dblJitterSize is not a postive scalar float"
 
-    # latency peaks
-    if intLatencyPeaks is None:
-        intLatencyPeaks = np.int64(0)
-    else:
-        intLatencyPeaks = np.int64(intLatencyPeaks)
-        assert intLatencyPeaks.size == 1 and intLatencyPeaks > -1 and intLatencyPeaks < 5, "intLatencyPeaks has an invalid value"
-
-    # latency peaks
+    # restrict range
     if tplRestrictRange is None:
         tplRestrictRange = np.float64((-np.inf, np.inf))
     else:
@@ -583,10 +576,10 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         boolReturnRate = False
     else:
         assert isinstance(boolReturnRate, bool), "boolReturnRate is not a boolean"
-    if (intLatencyPeaks > 2 or boolPlot) and boolReturnRate is False:
+    if boolPlot is True and boolReturnRate is False:
         boolReturnRate = True
         logging.warning(
-            "zetatest: boolReturnRate was False, but you requested plotting or latencies, so boolReturnRate is now set to True")
+            "zetatest: boolReturnRate was False, but you requested plotting, so boolReturnRate is now set to True")
 
     # to do: parallel computing
     boolParallel = False
@@ -652,7 +645,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
                                             dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur, boolParallel=boolParallel)
         
         # %% calculate IFR statistics
-        if vecRate is not None and intLatencyPeaks > 0:
+        if vecRate is not None:
             # get IFR peak
             dPeak = getPeak(vecRate, dRate['vecT'], tplRestrictRange=tplRestrictRange)
             dRate.update(dPeak)
@@ -660,18 +653,14 @@ def zetatest(vecSpikeTimes, arrEventTimes,
                 # assign array data
                 intZetaIdxRate = min(max(0,intZETAIdx-1),len(vecRate)-1)
                 intZetaIdxInvRate = min(max(0,intIdx_InvSign-1),len(vecRate)-1)
-                if intLatencyPeaks > 3:
-                    # get onset
-                    dOnset = getOnset(vecRate, dRate['vecT'], dRate['dblPeakTime'], tplRestrictRange)
-                    dRate['dblOnset'] = dOnset['dblOnset']
-                    vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], dOnset['dblOnset']]
-                    vecLatencyVals = [vecRate[intZetaIdxRate], vecRate[intZetaIdxInvRate],
-                                      vecRate[dPeak['intPeakLoc']], dOnset['dblValue']]
-                else:
-                    dRate['dblOnset'] = None
-                    vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], None]
-                    vecLatencyVals = [vecRate[intZetaIdxRate], vecRate[intZetaIdxInvRate], vecRate[dPeak['intPeakLoc']], None]
-
+                
+                # get onset
+                dOnset = getOnset(vecRate, dRate['vecT'], dRate['dblPeakTime'], tplRestrictRange)
+                dRate['dblOnset'] = dOnset['dblOnset']
+                vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], dOnset['dblOnset']]
+                vecLatencyVals = [vecRate[intZetaIdxRate], vecRate[intZetaIdxInvRate],
+                                  vecRate[dPeak['intPeakLoc']], dOnset['dblValue']]
+                
     # %% build output dictionary
     # fill dZETA
     dZETA['dblZETADeviation'] = dblZETADeviation
