@@ -105,7 +105,7 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     if boolSuppressUpgradeMessage is None:
         boolSuppressUpgradeMessage=False
     
-    if ~boolSuppressUpgradeMessage:
+    if boolSuppressUpgradeMessage is False:
         print('Please upgrade to the new version of the zeta-test called zetatest, as it has improved statistical sensitivity.\nIf you wish to continue using getZeta for legacy purposes and want to suppress this message, you can call getZeta with the optional parameter boolSuppressUpgradeMessage=True')
         
     # ensure arrEventTimes is a N x 2 array
