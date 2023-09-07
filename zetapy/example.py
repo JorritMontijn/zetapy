@@ -113,7 +113,7 @@ arrEventTimes = np.transpose(np.array([vecStimulusStartTimes, vecStimulusStopTim
 
 # then run ZETA with those parameters
 t = time.time()
-dblZetaP, dZETA, dRate, vecLatencies = zetatest(vecSpikeTimes1, arrEventTimes,
+dblZetaP, dZETA, dRate = zetatest(vecSpikeTimes1, arrEventTimes,
                                                 dblUseMaxDur=dblUseMaxDur,
                                                 intResampNum=intResampNum,
                                                 dblJitterSize=dblJitterSize,

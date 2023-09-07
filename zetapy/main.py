@@ -15,7 +15,7 @@ from zetapy.ts_dependencies import getPseudoTimeSeries,getTsRefT,getInterpolated
 
 # %% time-series zeta
 def zetatstest(vecTime, vecValue, arrEventTimes,
-             dblUseMaxDur=None, intResampNum=100, intPlot=0, dblJitterSize=2.0, boolDirectQuantile=False):
+             dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False):
     """
     Calculates responsiveness index zeta for timeseries data
 
@@ -28,7 +28,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     
     Syntax:
     dblZetaP,dZETA = zetatstest(vecTime, vecValue, arrEventTimes,
-                 dblUseMaxDur=None, intResampNum=100, intPlot=0, dblJitterSize=2.0, boolDirectQuantile=False):
+                 dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False):
 
     Parameters
     ----------
@@ -44,11 +44,11 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     intResampNum : integer
         number of resamplings (default: 100)
         [Note: if your p-value is close to significance, you should increase this number to enhance the precision]
-    intPlot : int
-        plotting switch (0: no plot, 1: plot figure) (default: 0)
+    boolPlot : boolean switch
+        plotting switch (False: no plot, True: plot figure) (default: False)
     dblJitterSize; float
         sets the temporal jitter window relative to dblUseMaxDur (default: 2.0)
-   boolDirectQuantile: boolean
+    boolDirectQuantile: boolean
          switch to use the empirical null-distribution rather than the Gumbel approximation (default: False)
          [Note: requires many resamplings!]
 
@@ -194,11 +194,8 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
         assert intResampNum.size == 1 and intResampNum > 1, "intResampNum is not a positive integer"
 
     # plotting
-    if intPlot is None:
-        intPlot = np.int64(0)
-    else:
-        intPlot = np.int64(intPlot)
-        assert intPlot.size == 1 and intPlot > -1 and intPlot < 5, "intPlot has an invalid value"
+    if boolPlot is None:
+        boolPlot = False
 
     # jitter
     if dblJitterSize is None:
@@ -313,7 +310,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     dZETA['dblUseMaxDur'] = dblUseMaxDur
 
     # %% plot
-    if intPlot > 0:
+    if boolPlot:
         plottszeta(vecTime, vecValue, vecEventStarts, dZETA)
 
     # %% return
@@ -323,10 +320,9 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 
 
 def zetatest(vecSpikeTimes, arrEventTimes,
-             dblUseMaxDur=None, intResampNum=100, intPlot=0, dblJitterSize=2.0,
-             intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf),
-             boolStitch=True, boolDirectQuantile=False,
-             boolReturnRate=False, boolVerbose=False):
+             dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
+             intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
+             boolDirectQuantile=False, boolReturnRate=False):
     
     """
     Calculates neuronal responsiveness index ZETA.
@@ -337,10 +333,9 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
     Syntax:
     dblZetaP,dZETA,dRate,vecLatencies = zetatest(vecSpikeTimes,arrEventTimes,
-                                                   dblUseMaxDur=None, intResampNum=100, intPlot=0, dblJitterSize=2.0,
-                                                   intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf),
-                                                   boolStitch=True, boolDirectQuantile=False,
-                                                   boolReturnRate=False, boolVerbose=False)
+                                                   dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
+                                                   intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
+                                                   boolDirectQuantile=False, boolReturnRate=False):
 
     Parameters
     ----------
@@ -355,12 +350,10 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     intResampNum : integer
         number of resamplings (default: 100)
         [Note: if your p-value is close to significance, you should increase this number to enhance the precision]
-    intPlot : int
-        plotting switch (0: no plot, 1: plot figure) (default: 0)
+    boolPlot : boolean switch
+        plotting switch (False: no plot, True: plot figure) (default: False)
     dblJitterSize; float
         sets the temporal jitter window relative to dblUseMaxDur (default: 2.0)
-    intLatencyPeaks : integer
-        maximum number of latency peaks to return (1-4) (default: 2) [see below]
     tplRestrictRange : 2-element tuple
         temporal range within which to restrict onset/peak latencies (default: [-inf inf])
     boolStitch; boolean
@@ -370,8 +363,6 @@ def zetatest(vecSpikeTimes, arrEventTimes,
          [Note: requires many resamplings!]
     boolReturnRate : boolean
         switch to return dictionary with spiking rate features [note: return-time is much faster if this is False]
-    boolVerbose : boolean
-        switch to print progress messages (default: False)
 
     Returns
     -------
@@ -398,7 +389,11 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             cellRandTime; jittered spike times corresponding to cellRandDeviation
             cellRandDeviation; baseline temporal deviation matrix of jittered data
             dblUseMaxDur; window length used to calculate ZETA
-            vecLatencies; latency times also provided as separate return variable (see below)
+            vecLatencies; 4-element array with latency times for different events:
+                1) Latency of ZETA
+                2) Latency of largest z-score with inverse sign to ZETA
+                3) Peak time of instantaneous firing rate
+                4) Onset time of response peak, defined as the first crossing of peak half-height
             vecLatencyVals; values corresponding to above latencies (ZETA, -ZETA, rate at peak, rate at onset)
 
     dRate : dict (empty if boolReturnRate was not set to True)
@@ -409,21 +404,13 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             vecScale; timescales used to calculate derivatives
             matMSD; multi-scale derivatives matrix
             vecV; values on which vecRate is calculated (same as dZETA.vecZ)
-        Data on the peak:
-            dblPeakTime; time of peak (in seconds)
-            dblPeakWidth; duration of peak (in seconds)
-            vecPeakStartStop; start and stop time of peak (in seconds)
-            intPeakLoc; spike index of peak (corresponding to dZETA.vecSpikeT)
-            vecPeakStartStopIdx; spike indices of peak start/stop (corresponding to dZETA.vecSpikeT)
-            dblOnset: latency for peak onset
-    vecLatencies : 1D array
-       Different latency estimates, number determined by intLatencyPeaks.
-       If no peaks are detected, it returns NaNs
-            1) Latency of ZETA
-            2) Latency of largest z-score with inverse sign to ZETA
-            3) Peak time of instantaneous firing rate
-            4) Onset time of response peak, defined as the first crossing of peak half-height
-
+        Data on the peak and onset:
+            dblPeakTime; time of peak (in seconds) [vecLatencies entry #3]
+            dblPeakWidth; duration of peak (in seconds) [vecLatencies entry #3]
+            vecPeakStartStop; start and stop time of peak (in seconds) [vecLatencies entry #3]
+            intPeakLoc; spike index of peak (corresponding to dZETA.vecSpikeT) [vecLatencies entry #3]
+            vecPeakStartStopIdx; spike indices of peak start/stop (corresponding to dZETA.vecSpikeT) [vecLatencies entry #3]
+            dblOnset: latency for peak onset [vecLatencies entry #4]
     Code by Jorrit Montijn, Guido Meijer & Alexander Heimel
 
     Version history:
@@ -555,11 +542,8 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         assert intResampNum.size == 1 and intResampNum > 1, "intResampNum is not a positive integer"
 
     # plotting
-    if intPlot is None:
-        intPlot = np.int64(0)
-    else:
-        intPlot = np.int64(intPlot)
-        assert intPlot.size == 1 and intPlot > -1 and intPlot < 5, "intPlot has an invalid value"
+    if boolPlot is None:
+        boolPlot = False
 
     # jitter
     if dblJitterSize is None:
@@ -599,16 +583,10 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         boolReturnRate = False
     else:
         assert isinstance(boolReturnRate, bool), "boolReturnRate is not a boolean"
-    if (intLatencyPeaks > 2 or intPlot > 0) and boolReturnRate is False:
+    if (intLatencyPeaks > 2 or boolPlot) and boolReturnRate is False:
         boolReturnRate = True
         logging.warning(
             "zetatest: boolReturnRate was False, but you requested plotting or latencies, so boolReturnRate is now set to True")
-
-    # verbosity
-    if boolVerbose is None:
-        boolVerbose = False
-    else:
-        assert isinstance(boolVerbose, bool), "boolVerbose is not a boolean"
 
     # to do: parallel computing
     boolParallel = False
@@ -632,7 +610,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     # check if calculation is valid, otherwise return empty values
     if intZETAIdx is None:
         logging.warning("zetatest: calculation failed, defaulting to p=1.0")
-        return dblZetaP, dZETA, dRate, vecLatencies
+        return dblZetaP, dZETA, dRate
 
     # %% extract real outputs
     # get location
@@ -715,11 +693,11 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     dZETA['vecLatencyVals'] = vecLatencyVals
 
     # %% plot
-    if intPlot > 0:
+    if boolPlot:
         plotzeta(vecSpikeTimes, vecEventStarts, dZETA, dRate)
 
     # %% return outputs
-    return dblZetaP, dZETA, dRate, vecLatencies
+    return dblZetaP, dZETA, dRate
 
 # %% IFR
 
@@ -841,7 +819,34 @@ def ifr(vecSpikeTimes, vecEventTimes,
 # %% plotzeta
 def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
              intPlotRandSamples=50, intPlotSpikeNum=10000):
+    '''
+    Creates figure for ZETA-test analysis
 
+    Syntax:
+    plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate, intPlotRandSamples=50, intPlotSpikeNum=10000)
+
+    Parameters
+    ----------
+    vecSpikeTimes : 1D array (float)
+        spike times (in seconds).
+    arrEventTimes : 1D or 2D array (float)
+        event on times (s), or [T x 2] including event off times to calculate on/off difference.
+    dZETA : dict
+        Output of zetatest.
+    dRate : dict
+        Output of zetatest.
+    intPlotRandSamples : int, optional
+        Maximum number of random resampling to plot. The default is 50.
+    intPlotSpikeNum : int, optional
+        Maximum number of spikes to plot. The default is 10000.
+
+
+    Code by Jorrit Montijn
+
+    Version history:
+    1.0 - 07 September 2023 Created by Jorrit Montijn
+    '''
+    
     # %% check input
     # vecSpikeTimes must be [S by 1] array
     assert (len(vecSpikeTimes.shape) == 1 or vecSpikeTimes.shape[1] == 1) and issubclass(
@@ -978,6 +983,29 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
 
 # %% plottszeta
 def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
+    '''
+    
+
+    Parameters
+    ----------
+    vecTime [N x 1]: 1D array (float)
+        timestamps in seconds corresponding to entries in vecValue.
+    vecData [N x 1] : 1D array (float)
+        values (e.g., dF/F0 activity).
+    arrEventTimes : 1D or 2D array (float)
+        event on times (s), or [T x 2] including event off times to calculate on/off difference.
+    dZETA : dict
+        Output of zetatstest.
+    intPlotRandSamples : int, optional
+        Maximum number of random resampling to plot. The default is 50.
+
+    
+    Code by Jorrit Montijn
+    
+    Version history:
+    1.0 - 07 September 2023 Created by Jorrit Montijn
+    '''
+    
     # %% prep data and assert inputs are correct
     
     # vecTime and vecValue must be [N by 1] arrays

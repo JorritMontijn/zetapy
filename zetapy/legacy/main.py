@@ -12,7 +12,7 @@ from zetapy.legacy.dependencies import (flatten, getTempOffset, getGumbel, getPe
 
 def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, intPlot=0,
             intLatencyPeaks=2, tplRestrictRange=(-np.inf, np.inf),
-            boolReturnRate=False, boolReturnZETA=False, boolVerbose=False):
+            boolReturnRate=False, boolReturnZETA=False, boolVerbose=False, boolSuppressUpgradeMessage=False):
     """
     Calculates neuronal responsiveness index ZETA.
 
@@ -43,6 +43,8 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
         switch to return dictionary with additional ZETA parameters
     boolVerbose : boolean
         switch to print progress messages (default: false)
+    boolSuppressUpgradeMessage :  boolean
+        switch to suppress the message to upgrade to zetatest (default: False)
 
     Returns
     -------
@@ -98,7 +100,14 @@ def getZeta(arrSpikeTimes, arrEventTimes, dblUseMaxDur=None, intResampNum=100, i
     2.5.1 - 18 February 2022 Bugfix by Guido Meijer of 1D arrEventTimes
     2.6 - 20 February 2022 Refactoring of python code by Guido Meijer
     """
-
+    
+    # boolSuppressUpgradeMessage=False
+    if boolSuppressUpgradeMessage is None:
+        boolSuppressUpgradeMessage=False
+    
+    if ~boolSuppressUpgradeMessage:
+        print('Please upgrade to the new version of the zeta-test called zetatest, as it has improved statistical sensitivity.\nIf you wish to continue using getZeta for legacy purposes and want to suppress this message, you can call getZeta with the optional parameter boolSuppressUpgradeMessage=True')
+        
     # ensure arrEventTimes is a N x 2 array
     if len(arrEventTimes.shape) > 1:
         boolStopSupplied = True
