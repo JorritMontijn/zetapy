@@ -176,7 +176,7 @@ def getPeak(vecData, vecT, tplRestrictRange=(-np.inf, np.inf), intSwitchZ=1):
 
     Output:
         dPeak, dict with entries:
-        - dblPeakTime: time of peak
+        - dblLatencyPeak: time of peak
         - dblPeakValue: value of peak (rate)
         - dblPeakWidth: width of peak
         - vecPeakStartStop: start/stop times of peak
@@ -278,21 +278,21 @@ def getPeak(vecData, vecT, tplRestrictRange=(-np.inf, np.inf), intSwitchZ=1):
         dblPeakStopT = vecT[intPeakStop]
         # assign peak data
         dblPeakValue = vecData[intPeakLoc]
-        dblPeakTime = vecT[intPeakLoc]
+        dblLatencyPeak = vecT[intPeakLoc]
         dblPeakWidth = dblPeakStopT - dblPeakStartT
         vecPeakStartStop = [dblPeakStartT, dblPeakStopT]
         vecPeakStartStopIdx = [intPeakStart, intPeakStop]
     else:
         # assign placeholder peak data
         dblPeakValue = np.nan
-        dblPeakTime = np.nan
+        dblLatencyPeak = np.nan
         dblPeakWidth = np.nan
         vecPeakStartStop = [np.nan, np.nan]
         intPeakLoc = None
         vecPeakStartStopIdx = [None, None]
 
     dPeak = dict()
-    dPeak['dblPeakTime'] = dblPeakTime
+    dPeak['dblLatencyPeak'] = dblLatencyPeak
     dPeak['dblPeakValue'] = dblPeakValue
     dPeak['dblPeakWidth'] = dblPeakWidth
     dPeak['vecPeakStartStop'] = vecPeakStartStop
@@ -302,24 +302,24 @@ def getPeak(vecData, vecT, tplRestrictRange=(-np.inf, np.inf), intSwitchZ=1):
 
 
 # %%
-def getOnset(vecData, vecT, dblPeakTime=None, tplRestrictRange=None):
+def getOnset(vecData, vecT, dblLatencyPeak=None, tplRestrictRange=None):
     """Returns peak onset. Syntax:
-        dOnset = getOnset(vecData,vecT,dblPeakTime=None,tplRestrictRange=None)
+        dOnset = getOnset(vecData,vecT,dblLatencyPeak=None,tplRestrictRange=None)
 
     Required input:
         - vecData [N x 1]: values
         - vecT [N x 1]: timestamps corresponding to vecData
 
     Optional inputs:
-        - dblPeakTime (float): timestamp corresponding to peak
+        - dblLatencyPeak (float): timestamp corresponding to peak
         - tplRestrictRange [2 x 1]: restrict peak to lie within tplRestrictRange(1) and tplRestrictRange(end)
 
     Output:
         dOnset: dict with entries:
-        - dblOnset: time of peak onset (first crossing half-height of peak)
+        - dblLatencyPeakOnset: time of peak onset (first crossing half-height of peak)
         - dblValue: value at peak onset
         - dblBaseValue: baseline value (first value of tplRestrictRange, or first value in vecData if None)
-        - dblPeakTime: time of peak
+        - dblLatencyPeak: time of peak
         - dblPeakValue: value of peak
 
     Version history:
@@ -338,16 +338,16 @@ def getOnset(vecData, vecT, dblPeakTime=None, tplRestrictRange=None):
     vecDataCropped = vecData[indKeep]
 
     # find peak if none supplied
-    if dblPeakTime is None:
+    if dblLatencyPeak is None:
         intPeakIdx = np.argmax(vecDataCropped)
-        dblPeakTime = vecCropT[intPeakIdx]
+        dblLatencyPeak = vecCropT[intPeakIdx]
     else:
-        intPeakIdx = findfirst(vecCropT > dblPeakTime)
+        intPeakIdx = findfirst(vecCropT > dblLatencyPeak)
         if intPeakIdx is None:
             logging.warning(
                 "getOnset:InvalidPeakTime: Supplied peak was invalid; taking max value of cropped data")
             intPeakIdx = np.argmax(vecDataCropped)
-            dblPeakTime = vecCropT[intPeakIdx]
+            dblLatencyPeak = vecCropT[intPeakIdx]
 
     dblPeakValue = vecDataCropped[intPeakIdx]
 
@@ -360,18 +360,18 @@ def getOnset(vecData, vecT, dblPeakTime=None, tplRestrictRange=None):
         intOnsetIdx = findfirst(vecDataCropped <= dblThresh)
 
     if intOnsetIdx is None:
-        dblOnset = np.nan
+        dblLatencyPeakOnset = np.nan
         dblValue = np.nan
     else:
-        dblOnset = vecCropT[intOnsetIdx]
+        dblLatencyPeakOnset = vecCropT[intOnsetIdx]
         dblValue = vecDataCropped[intOnsetIdx]
 
     # return
     dOnset = dict()
-    dOnset['dblOnset'] = dblOnset
+    dOnset['dblLatencyPeakOnset'] = dblLatencyPeakOnset
     dOnset['dblValue'] = dblValue
     dOnset['dblBaseValue'] = dblBaseValue
-    dOnset['dblPeakTime'] = dblPeakTime
+    dOnset['dblLatencyPeak'] = dblLatencyPeak
     dOnset['dblPeakValue'] = dblPeakValue
 
     return dOnset

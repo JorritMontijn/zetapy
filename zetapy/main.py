@@ -15,7 +15,7 @@ from zetapy.ts_dependencies import getPseudoTimeSeries,getTsRefT,getInterpolated
 
 # %% time-series zeta
 def zetatstest(vecTime, vecValue, arrEventTimes,
-             dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False):
+             dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, intUseJitterDistro=1):
     """
     Calculates responsiveness index zeta for timeseries data
 
@@ -28,7 +28,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     
     Syntax:
     dblZetaP,dZETA = zetatstest(vecTime, vecValue, arrEventTimes,
-                 dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False):
+                 dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, intUseJitterDistro=1):
 
     Parameters
     ----------
@@ -51,7 +51,10 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     boolDirectQuantile: boolean
          switch to use the empirical null-distribution rather than the Gumbel approximation (default: False)
          [Note: requires many resamplings!]
+    intUseJitterDistro: integer
+        switch to use linear resampling (default, intUseJitterDistro=1) or uniform jitters (intUseJitterDistro=2)
 
+        
     Returns
     -------
     dblZetaP : float
@@ -63,12 +66,12 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
             dblMeanZ; z-score for mean-rate stim/base difference (i.e., >2 is significant)
             dblMeanP; p-value based on mean-rate stim/base difference
             dblZETADeviation; temporal deviation value underlying ZETA
-            dblZETATime; time corresponding to ZETA
+            dblLatencyZETA; time corresponding to ZETA
             intZETAIdx; entry corresponding to ZETA
             vecMu_Dur; mean activity per trial during stim (used for mean-rate test)
             vecMu_Base; mean activity per trial during baseline (used for mean-rate test)
             dblD_InvSign; largest deviation of inverse sign to ZETA (i.e., -ZETA)
-            dblT_InvSign; time corresponding to -ZETA
+            dblLatencyInvZETA; time corresponding to -ZETA
             intIdx_InvSign; entry corresponding to -ZETA
             vecRealTime: timestamps of event-centered time-series values (corresponding to vecRealDeviation)
             vecRealDeviation; temporal deviation vector of data
@@ -96,14 +99,14 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     dZETA['dblMeanP'] = None
     # data on ZETA peak
     dZETA['dblZETADeviation'] = None
-    dZETA['dblZETATime'] = None
+    dZETA['dblLatencyZETA'] = None
     dZETA['intZETAIdx'] = None
     # data underlying mean-rate test
     dZETA['vecMu_Dur'] = None
     dZETA['vecMu_Base'] = None
     # inverse-sign ZETA
     dZETA['dblD_InvSign'] = None
-    dZETA['dblT_InvSign'] = None
+    dZETA['dblLatencyInvZETA'] = None
     dZETA['intIdx_InvSign'] = None
 
     # derived from calcZetaOne
@@ -204,11 +207,15 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
         dblJitterSize = np.float64(dblJitterSize)
         assert dblJitterSize.size == 1 and dblJitterSize > 0, "dblJitterSize is not a postive scalar float"
 
-    # direct quantile comnputation
+    # direct quantile computation
     if boolDirectQuantile is None:
         boolDirectQuantile = False
     else:
         assert isinstance(boolDirectQuantile, bool), "boolDirectQuantile is not a boolean"
+
+    # which jitter distro to use?
+    if intUseJitterDistro is None or intUseJitterDistro < 1 or intUseJitterDistro > 2:
+        intUseJitterDistro = 1
 
     # sampling interval
     dblSamplingInterval = np.median(np.diff(vecTime));
@@ -227,7 +234,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     
     # %% calculate zeta
     dZETA_One = calcTsZetaOne(vecTime, vecValue, vecEventStarts, dblUseMaxDur, intResampNum,
-                            boolDirectQuantile, dblJitterSize)
+                            boolDirectQuantile, dblJitterSize, intUseJitterDistro)
 
     # update and unpack
     dZETA.update(dZETA_One)
@@ -248,12 +255,12 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 
     # %% extract real outputs
     # get location
-    dblZETATime = vecRealTime[intZETAIdx]
+    dblLatencyZETA = vecRealTime[intZETAIdx]
     dblZETADeviation = vecRealDeviation[intZETAIdx]
     
     # find peak of inverse sign
     intIdx_InvSign = np.argmax(-np.sign(dblZETADeviation)*vecRealDeviation)
-    dblT_InvSign = vecRealTime[intIdx_InvSign]
+    dblLatencyInvZETA = vecRealTime[intIdx_InvSign]
     dblD_InvSign = vecRealDeviation[intIdx_InvSign]
 
     # %% calculate mean-rate difference
@@ -295,7 +302,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     # %% build output structure
     # fill dZETA
     dZETA['dblZETADeviation'] = dblZETADeviation
-    dZETA['dblZETATime'] = dblZETATime
+    dZETA['dblLatencyZETA'] = dblLatencyZETA
     if boolStopSupplied:
         dZETA['dblMeanZ'] = dblMeanZ
         dZETA['dblMeanP'] = dblMeanP
@@ -304,7 +311,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 
     # inverse-sign ZETA
     dZETA['dblD_InvSign'] = dblD_InvSign
-    dZETA['dblT_InvSign'] = dblT_InvSign
+    dZETA['dblLatencyInvZETA'] = dblLatencyInvZETA
     dZETA['intIdx_InvSign'] = intIdx_InvSign
     # window used for analysis
     dZETA['dblUseMaxDur'] = dblUseMaxDur
@@ -322,7 +329,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 def zetatest(vecSpikeTimes, arrEventTimes,
              dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
              tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
-             boolDirectQuantile=False, boolReturnRate=False):
+             boolDirectQuantile=False, boolReturnRate=False, intUseJitterDistro=1):
     
     """
     Calculates neuronal responsiveness index ZETA.
@@ -363,6 +370,8 @@ def zetatest(vecSpikeTimes, arrEventTimes,
          [Note: requires many resamplings!]
     boolReturnRate : boolean
         switch to return dictionary with spiking rate features [note: return-time is much faster if this is False]
+    intUseJitterDistro : integer
+        switch to use linear resampling (default, intUseJitterDistro=1) or uniform jitters (intUseJitterDistro=2)
 
     Returns
     -------
@@ -375,12 +384,12 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             dblMeanZ; z-score for mean-rate stim/base difference (i.e., >2 is significant)
             dblMeanP; p-value based on mean-rate stim/base difference
             dblZETADeviation; temporal deviation value underlying ZETA
-            dblZETATime; time corresponding to ZETA
+            dblLatencyZETA; time corresponding to ZETA
             intZETAIdx; entry corresponding to ZETA
             vecMu_Dur; spiking rate per trial during stim (used for mean-rate test)
             vecMu_Pre; spiking rate per trial during baseline (used for mean-rate test)
             dblD_InvSign; largest deviation of inverse sign to ZETA (i.e., -ZETA)
-            dblT_InvSign; time corresponding to -ZETA
+            dblLatencyInvZETA; time corresponding to -ZETA
             intIdx_InvSign; entry corresponding to -ZETA
             vecSpikeT: timestamps of spike times (corresponding to vecRealDeviation)
             vecRealDeviation; temporal deviation vector of data
@@ -390,10 +399,10 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             cellRandDeviation; baseline temporal deviation matrix of jittered data
             dblUseMaxDur; window length used to calculate ZETA
             vecLatencies; 4-element array with latency times for different events:
-                1) Latency of ZETA
-                2) Latency of largest z-score with inverse sign to ZETA
-                3) Peak time of instantaneous firing rate
-                4) Onset time of response peak, defined as the first crossing of peak half-height
+                1) Latency of ZETA [same as dblZETADeviation]
+                2) Latency of largest z-score with inverse sign to ZETA (same as dblLatencyInvZETA])
+                3) Peak time of instantaneous firing rate (same as dRate['dblLatencyPeak'])
+                4) Onset time, defined as the first crossing of peak half-height (same as dRate['dblLatencyPeakOnset'])
             vecLatencyVals; values corresponding to above latencies (ZETA, -ZETA, rate at peak, rate at onset)
 
     dRate : dict (empty if boolReturnRate was not set to True)
@@ -405,12 +414,12 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             matMSD; multi-scale derivatives matrix
             vecV; values on which vecRate is calculated (same as dZETA.vecZ)
         Data on the peak and onset:
-            dblPeakTime; time of peak (in seconds) [vecLatencies entry #3]
+            dblLatencyPeak; time of peak (in seconds) [vecLatencies entry #3]
             dblPeakWidth; duration of peak (in seconds) [vecLatencies entry #3]
             vecPeakStartStop; start and stop time of peak (in seconds) [vecLatencies entry #3]
             intPeakLoc; spike index of peak (corresponding to dZETA.vecSpikeT) [vecLatencies entry #3]
             vecPeakStartStopIdx; spike indices of peak start/stop (corresponding to dZETA.vecSpikeT) [vecLatencies entry #3]
-            dblOnset: latency for peak onset [vecLatencies entry #4]
+            dblLatencyPeakOnset: latency for peak onset [vecLatencies entry #4]
     Code by Jorrit Montijn, Guido Meijer & Alexander Heimel
 
     Version history:
@@ -418,6 +427,8 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     2.5.1 - 18 February 2022 Bugfix by Guido Meijer of 1D arrEventTimes
     2.6 - 20 February 2022 Refactoring of python code by Guido Meijer
     3.0 - 16 Aug 2023 New port of zetatest to Python [by Jorrit Montijn]
+    3.1 - 15 Sept 2023 Changed latency variable names, added intUseJitterDistro switch [by Jorrit Montijn]
+    
     """
 
     # %% build placeholder outputs
@@ -437,14 +448,14 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     dZETA['dblMeanP'] = None
     # data on ZETA peak
     dZETA['dblZETADeviation'] = None
-    dZETA['dblZETATime'] = None
+    dZETA['dblLatencyZETA'] = None
     dZETA['intZETAIdx'] = None
     # data underlying mean-rate test
     dZETA['vecMu_Dur'] = None
     dZETA['vecMu_Pre'] = None
     # inverse-sign ZETA
     dZETA['dblD_InvSign'] = None
-    dZETA['dblT_InvSign'] = None
+    dZETA['dblLatencyInvZETA'] = None
     dZETA['intIdx_InvSign'] = None
 
     # derived from calcZetaOne
@@ -471,12 +482,12 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     dRate['vecScale'] = None
     dRate['matMSD'] = None
     dRate['vecV'] = None
-    dRate['dblPeakTime'] = None
+    dRate['dblLatencyPeak'] = None
     dRate['dblPeakWidth'] = None
     dRate['vecPeakStartStop'] = None
     dRate['intPeakLoc'] = None
     dRate['vecPeakStartStopIdx'] = None
-    dRate['dblOnset'] = None
+    dRate['dblLatencyPeakOnset'] = None
 
     # %% prep data and assert inputs are correct
 
@@ -581,12 +592,16 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         logging.warning(
             "zetatest: boolReturnRate was False, but you requested plotting, so boolReturnRate is now set to True")
 
+    # which jitter distro to use?
+    if intUseJitterDistro is None or intUseJitterDistro < 1 or intUseJitterDistro > 2:
+        intUseJitterDistro = 1
+
     # to do: parallel computing
     boolParallel = False
 
     # %% calculate zeta
     dZETA_One = calcZetaOne(vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum,
-                            boolDirectQuantile, dblJitterSize, boolStitch, boolParallel)
+                            boolDirectQuantile, dblJitterSize, boolStitch, boolParallel, intUseJitterDistro)
 
     # update and unpack
     dZETA.update(dZETA_One)
@@ -607,12 +622,12 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
     # %% extract real outputs
     # get location
-    dblZETATime = vecSpikeT[intZETAIdx]
+    dblLatencyZETA = vecSpikeT[intZETAIdx]
     dblZETADeviation = vecRealDeviation[intZETAIdx]
 
     # find peak of inverse sign
     intIdx_InvSign = np.argmax(-np.sign(dblZETADeviation)*vecRealDeviation)
-    dblT_InvSign = vecSpikeT[intIdx_InvSign]
+    dblLatencyInvZETA = vecSpikeT[intIdx_InvSign]
     dblD_InvSign = vecRealDeviation[intIdx_InvSign]
 
     # %% calculate mean-rate difference with t-test
@@ -649,22 +664,22 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             # get IFR peak
             dPeak = getPeak(vecRate, dRate['vecT'], tplRestrictRange=tplRestrictRange)
             dRate.update(dPeak)
-            if dRate['dblPeakTime'] is not None and ~np.isnan(dRate['dblPeakTime']):
+            if dRate['dblLatencyPeak'] is not None and ~np.isnan(dRate['dblLatencyPeak']):
                 # assign array data
                 intZetaIdxRate = min(max(0,intZETAIdx-1),len(vecRate)-1)
                 intZetaIdxInvRate = min(max(0,intIdx_InvSign-1),len(vecRate)-1)
                 
                 # get onset
-                dOnset = getOnset(vecRate, dRate['vecT'], dRate['dblPeakTime'], tplRestrictRange)
-                dRate['dblOnset'] = dOnset['dblOnset']
-                vecLatencies = [dblZETATime, dblT_InvSign, dRate['dblPeakTime'], dOnset['dblOnset']]
+                dOnset = getOnset(vecRate, dRate['vecT'], dRate['dblLatencyPeak'], tplRestrictRange)
+                dRate['dblLatencyPeakOnset'] = dOnset['dblLatencyPeakOnset']
+                vecLatencies = [dblLatencyZETA, dblLatencyInvZETA, dRate['dblLatencyPeak'], dOnset['dblLatencyPeakOnset']]
                 vecLatencyVals = [vecRate[intZetaIdxRate], vecRate[intZetaIdxInvRate],
                                   vecRate[dPeak['intPeakLoc']], dOnset['dblValue']]
                 
     # %% build output dictionary
     # fill dZETA
     dZETA['dblZETADeviation'] = dblZETADeviation
-    dZETA['dblZETATime'] = dblZETATime
+    dZETA['dblLatencyZETA'] = dblLatencyZETA
     if boolStopSupplied:
         dZETA['dblMeanZ'] = dblMeanZ
         dZETA['dblMeanP'] = dblMeanP
@@ -673,7 +688,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
     # inverse-sign ZETA
     dZETA['dblD_InvSign'] = dblD_InvSign
-    dZETA['dblT_InvSign'] = dblT_InvSign
+    dZETA['dblLatencyInvZETA'] = dblLatencyInvZETA
     dZETA['intIdx_InvSign'] = intIdx_InvSign
     # window used for analysis
     dZETA['dblUseMaxDur'] = dblUseMaxDur
@@ -865,10 +880,10 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
         dblZETA = dZETA['dblZETA']
         dblZetaP = dZETA['dblZetaP']
         dblZETADeviation = dZETA['dblZETADeviation']
-        dblZETATime = dZETA['dblZETATime']
+        dblLatencyZETA = dZETA['dblLatencyZETA']
 
         dblD_InvSign = dZETA['dblD_InvSign']
-        dblT_InvSign = dZETA['dblT_InvSign']
+        dblLatencyInvZETA = dZETA['dblLatencyInvZETA']
         intIdx_InvSign = dZETA['intIdx_InvSign']
 
         dblMeanZ = dZETA['dblMeanZ']
@@ -935,8 +950,8 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
     for i in range(intPlotRandSamples-1):
         ax3.plot(cellRandTime[i], cellRandDeviation[i], color=[0.7, 0.7, 0.7])
     ax3.plot(vecSpikeT, vecRealDeviation)
-    ax3.plot(dblZETATime, dblZETADeviation, 'bx')
-    ax3.plot(dblT_InvSign, dblD_InvSign, 'b*')
+    ax3.plot(dblLatencyZETA, dblZETADeviation, 'bx')
+    ax3.plot(dblLatencyInvZETA, dblD_InvSign, 'b*')
     ax3.set(xlabel='Time after event (s)', ylabel='Spiking density anomaly (s)')
     if dblMeanZ is not None:
         ax3.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), z(Hz)={dblMeanZ:.3f} (p={dblMeanP:.3f})')
@@ -1046,14 +1061,14 @@ def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
         dblMeanP = dZETA['dblMeanP']
         # data on ZETA peak
         dblZETADeviation = dZETA['dblZETADeviation']
-        dblZETATime = dZETA['dblZETATime']
+        dblLatencyZETA = dZETA['dblLatencyZETA']
         intZETAIdx = dZETA['intZETAIdx']
         # data underlying mean-rate test
         vecMu_Dur = dZETA['vecMu_Dur']
         vecMu_Base = dZETA['vecMu_Base']
         # inverse-sign ZETA
         dblD_InvSign = dZETA['dblD_InvSign']
-        dblT_InvSign = dZETA['dblT_InvSign']
+        dblLatencyInvZETA = dZETA['dblLatencyInvZETA']
         intIdx_InvSign = dZETA['intIdx_InvSign']
 
         # derived from calcZetaOne
@@ -1117,8 +1132,8 @@ def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
     for i in range(intPlotRandSamples-1):
         ax4.plot(cellRandTime[i], cellRandDeviation[i], color=[0.7, 0.7, 0.7])
     ax4.plot(vecRealTime, vecRealDeviation)
-    ax4.plot(dblZETATime, dblZETADeviation, 'bx')
-    ax4.plot(dblT_InvSign, dblD_InvSign, 'b*')
+    ax4.plot(dblLatencyZETA, dblZETADeviation, 'bx')
+    ax4.plot(dblLatencyInvZETA, dblD_InvSign, 'b*')
     ax4.set(xlabel='Time after event (s)', ylabel='Data amplitude anomaly')
     if dblMeanZ is not None:
         ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), z(Hz)={dblMeanZ:.3f} (p={dblMeanP:.3f})')

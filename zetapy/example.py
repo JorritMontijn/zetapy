@@ -105,6 +105,9 @@ tplRestrictRange = (0, np.inf)
 # do we want to compute the instantaneous firing rate?
 boolReturnRate = True
 
+# do we want to use linearly spaced jitters (1: default) or random uniform samples (2)?
+intUseJitterDistro = 2
+
 # create a T by 2 array with stimulus onsets and offsets so we can also compute the t-test
 arrEventTimes = np.transpose(np.array([vecStimulusStartTimes, vecStimulusStopTimes]))
 
@@ -116,7 +119,8 @@ dblZetaP, dZETA, dRate = zetatest(vecSpikeTimes1, arrEventTimes,
                                                 dblJitterSize=dblJitterSize,
                                                 boolPlot=boolPlot,
                                                 tplRestrictRange=tplRestrictRange,
-                                                boolReturnRate=boolReturnRate)
+                                                boolReturnRate=boolReturnRate,
+                                                intUseJitterDistro=intUseJitterDistro)
 
 dblElapsedT2 = time.time() - t
 print(f"\nSpecified parameters (elapsed time: {dblElapsedT2:.2f} s): \
@@ -174,7 +178,8 @@ t = time.time()
 print('\nRunning time-series zeta-test with specified parameters; This will take around 40 seconds\n')
 dblTsZetaP2, dZetaTs = zetatstest(vecTimestamps, vecData, arrEventTimesTs,
                                   dblUseMaxDur=None, intResampNum=100, boolPlot=True,
-                                  dblJitterSize=2.0, boolDirectQuantile=False)
+                                  dblJitterSize=2.0, boolDirectQuantile=False,
+                                  intUseJitterDistro=2)
 
 dblElapsedT4 = time.time() - t
 print(f"\nSpecified parameters (elapsed time: {dblElapsedT4:.2f} s): \
