@@ -325,7 +325,7 @@ def getOnset(vecData, vecT, dblLatencyPeak=None, tplRestrictRange=None):
     Version history:
     1.0 - June 19, 2020 Created by Jorrit Montijn, Translated to Python by Alexander Heimel
     2.0 - August 22, 2023 Updated translation by JM
-    2.0.1 - August 20 2023, Bug fix for peak time definition [by JM]
+    2.0.1 - August 30 2023, Bug fix for peak time definition [by JM]
     """
 
     # check input
@@ -342,7 +342,7 @@ def getOnset(vecData, vecT, dblLatencyPeak=None, tplRestrictRange=None):
         intPeakIdx = np.argmax(vecDataCropped)
         dblLatencyPeak = vecCropT[intPeakIdx]
     else:
-        intPeakIdx = findfirst(vecCropT > dblLatencyPeak)
+        intPeakIdx = findfirst(vecCropT >= dblLatencyPeak)
         if intPeakIdx is None:
             logging.warning(
                 "getOnset:InvalidPeakTime: Supplied peak was invalid; taking max value of cropped data")
