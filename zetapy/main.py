@@ -7,28 +7,307 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 # from zetapy import msd
 from scipy import stats
-from zetapy.dependencies import (calcZetaOne, getTempOffsetOne, flatten, findfirst)
+from zetapy.dependencies import (calcZetaOne, calcZetaTwo, getTempOffsetOne, flatten, findfirst)
 from zetapy.ifr_dependencies import (getMultiScaleDeriv, getPeak, getOnset)
 from zetapy.plot_dependencies import calculatePeths
-from zetapy.ts_dependencies import getPseudoTimeSeries,getTsRefT,getInterpolatedTimeSeries,calcTsZetaOne
+from zetapy.ts_dependencies import calcTsZetaOne, calcTsZetaTwo, getPseudoTimeSeries, getTsRefT, getInterpolatedTimeSeries, 
 
+# %% two-sample zeta test
+
+
+def zetatest2(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2,
+              dblUseMaxDur=None, intResampNum=250, boolPlot=False, boolDirectQuantile=False):
+    """
+    Calculates two-sample zeta-test
+
+    Heimel, J.A., Meijer, G.T., Montijn, J.S. (2023). A new family of statistical tests for responses
+    in point-event and time-series data for one- and two-sample comparisons. bioRxiv
+
+    Montijn, J.S., Seignette, K., Howlett, M.H., Cazemier, J.L., Kamermans, M., Levelt, C.N.,
+    and Heimel, J.A. (2021). A parameter-free statistical test for neuronal responsiveness.
+    eLife 10, e71969.
+
+    Syntax:
+    dblZeta2P,dZETA2 = zetatest2(vecSpikeTimes1,arrEventTimes1,vecSpikeTimes2,arrEventTimes2,
+                                                  dblUseMaxDur=None, intResampNum=250, boolPlot=False, boolDirectQuantile=False)
+
+
+    Parameters
+    ----------
+    vecSpikeTimes1 : 1D array (float)
+        spike times (in seconds) for condition 1.
+    arrEventTimes1 : 1D or 2D array (float)
+        event on times (s) for condition 1, or [T x 2] including event off times to calculate mean-rate difference.
+    vecSpikeTimes2 : 1D array (float)
+        spike times (in seconds) for condition 2.
+    arrEventTimes2 : 1D or 2D array (float)
+        event on times (s) for condition 2, or [T x 2] including event off times to calculate mean-rate difference.
+
+    dblUseMaxDur : float
+        window length for calculating ZETA: ignore all spikes beyond this duration after event onset
+        (default: minimum of event onset to event onset)
+    intResampNum : integer
+        number of resamplings (default: 250)
+        [Note: if your p-value is close to significance, you should increase this number to enhance the precision]
+    boolPlot : boolean switch
+        plotting switch (False: no plot, True: plot figure) (default: False)
+    boolDirectQuantile: boolean
+         switch to use the empirical null-distribution rather than the Gumbel approximation (default: False)
+         [Note: requires many resamplings!]
+
+    Returns
+    -------
+    dblZeta2P : float
+        p-value based on Zenith of Event-based Time-locked Anomalies for two-sample comparison
+    dZETA2 : dict
+        additional information of ZETA test
+            dblZetaP; p-value based on Zenith of Event-based Time-locked Anomalies (same as above)
+            dblZETA; responsiveness z-score (i.e., >2 is significant)
+            dblMeanZ; z-score for mean-rate stim/base difference (i.e., >2 is significant)
+            dblMeanP; p-value based on mean-rate stim/base difference
+            dblZETADeviation; temporal deviation value underlying ZETA
+            dblZetaT; time corresponding to ZETA
+            intZetaIdx; entry corresponding to ZETA
+            vecMu1; average spiking rate values per event underlying t-test for condition 1
+            vecMu2; average spiking rate values per event underlying t-test for condition 2
+            vecSpikeT: timestamps of spike times (corresponding to vecRealDiff)
+            vecRealDiff; difference between condition 1 and 2
+            vecRealFrac1; cumulative spike vector of condition 1
+            vecRealFrac2; cumulative spike vector of condition 2
+            dblD_InvSign; largest deviation of inverse sign to ZETA (i.e., -ZETA)
+            dblZetaT_InvSign; time corresponding to -ZETA
+            intZetaIdx_InvSign; entry corresponding to -ZETA
+            cellRandTime; timestamps for null-hypothesis resampled data
+            cellRandDiff; null-hypothesis temporal deviation vectors of resampled data
+            dblUseMaxDur; window length used to calculate ZETA
+
+    Code by Jorrit Montijn
+
+    Version history:
+    1.0 - 25 Oct 2023 Translated to python [by Jorrit Montijn]
+
+    """
+
+    # %% build placeholder outputs
+    dblZetaP = 1.0
+    dZETA = dict()
+
+    # fill dZETA
+    # ZETA significance
+    dZETA['dblZetaP'] = dblZetaP
+    dZETA['dblZETA'] = None
+    # mean-rate significance
+    dZETA['dblMeanZ'] = None
+    dZETA['dblMeanP'] = None
+    # data on ZETA peak
+    dZETA['dblZETADeviation'] = None
+    dZETA['dblZetaT'] = None
+    dZETA['intZetaIdx'] = None
+    # data underlying mean-rate test
+    dZETA['vecMu1'] = None
+    dZETA['vecMu2'] = None
+
+    # inverse-sign ZETA
+    dZETA['dblD_InvSign'] = None
+    dZETA['dblZetaT_InvSign'] = None
+    dZETA['intZetaIdx_InvSign'] = None
+
+    # derived from calcZetaOne
+    dZETA['vecSpikeT'] = None
+    dZETA['vecRealDiff'] = None
+    dZETA['vecRealFrac1'] = None
+    dZETA['vecRealFrac2'] = None
+    dZETA['cellRandTime'] = None
+    dZETA['cellRandDiff'] = None
+    # dZETA['dblZetaP'] = None #<-updates automatically
+    # dZETA['dblZETA'] = None #<-updates automatically
+    # dZETA['intZETAIdx'] = None #<-updates automatically
+
+    # window used for analysis
+    dZETA['dblUseMaxDur'] = None
+
+    # %% prep data and assert inputs are correct
+
+    # vecSpikeTimes1 must be [S by 1] array
+    assert (len(vecSpikeTimes1.shape) == 1 or vecSpikeTimes1.shape[1] == 1) and issubclass(
+        vecSpikeTimes1.dtype.type, np.floating), "Input vecSpikeTimes1 is not a 1D float np.array with >2 spike times"
+    vecSpikeTimes1 = np.sort(vecSpikeTimes1.flatten(), axis=0)
+
+    # vecSpikeTimes2 must be [S by 1] array
+    assert (len(vecSpikeTimes2.shape) == 1 or vecSpikeTimes2.shape[1] == 1) and issubclass(
+        vecSpikeTimes2.dtype.type, np.floating), "Input vecSpikeTimes2 is not a 1D float np.array with >2 spike times"
+    vecSpikeTimes2 = np.sort(vecSpikeTimes2.flatten(), axis=0)
+
+    # ensure orientation and assert that arrEventTimes1 is a 1D or N-by-2 array of floats
+    assert len(arrEventTimes1.shape) < 3 and issubclass(
+        arrEventTimes1.dtype.type, np.floating), "Input arrEventTimes1 is not a 1D or 2D float np.array"
+    if len(arrEventTimes1.shape) > 1:
+        if arrEventTimes1.shape[1] < 3:
+            pass
+        elif arrEventTimes1.shape[0] < 3:
+            arrEventTimes1 = arrEventTimes1.T
+        else:
+            raise Exception(
+                "Input error: arrEventTimes1 must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
+    else:
+        # turn into T-by-1 array
+        arrEventTimes1 = np.reshape(arrEventTimes1, (-1, 1))
+    # define event starts
+    vecEventStarts1 = arrEventTimes1[:, 0]
+
+    # ensure orientation and assert that arrEventTimes2 is a 1D or N-by-2 array of floats
+    assert len(arrEventTimes2.shape) < 3 and issubclass(
+        arrEventTimes2.dtype.type, np.floating), "Input arrEventTimes2 is not a 1D or 2D float np.array"
+    if len(arrEventTimes2.shape) > 1:
+        if arrEventTimes2.shape[1] < 3:
+            pass
+        elif arrEventTimes2.shape[0] < 3:
+            arrEventTimes2 = arrEventTimes2.T
+        else:
+            raise Exception(
+                "Input error: arrEventTimes2 must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
+    else:
+        # turn into T-by-1 array
+        arrEventTimes2 = np.reshape(arrEventTimes2, (-1, 1))
+    # define event starts
+    vecEventStarts2 = arrEventTimes2[:, 0]
+
+    # is stop supplied?
+    if len(arrEventTimes1.shape) > 1 and arrEventTimes1.shape[1] > 1 and len(arrEventTimes2.shape) > 1 and arrEventTimes2.shape[1] > 1:
+        boolStopSupplied = True
+        arrEventOnDur1 = arrEventTimes1[:, 1] - arrEventTimes1[:, 0]
+        assert np.all(arrEventOnDur1 > 0), "at least one event in arrEventTimes1 has a negative duration"
+
+        arrEventOnDur2 = arrEventTimes2[:, 1] - arrEventTimes2[:, 0]
+        assert np.all(arrEventOnDur2 > 0), "at least one event in arrEventTimes2 has a negative duration"
+
+        # trial dur
+        if dblUseMaxDur is None:
+            dblUseMaxDur = min(np.min(arrEventOnDur1), np.min(arrEventOnDur2))
+    else:
+        boolStopSupplied = False
+        dblMeanZ = np.nan
+        dblMeanP = np.nan
+
+    # trial dur
+    if dblUseMaxDur is None:
+        dblUseMaxDur = min(np.min(np.diff(arrEventTimes1[:, 0])), np.min(np.diff(arrEventTimes2[:, 0])))
+    else:
+        dblUseMaxDur = np.float64(dblUseMaxDur)
+        assert dblUseMaxDur.size == 1 and dblUseMaxDur > 0, "dblUseMaxDur is not a positive scalar float"
+
+    # get resampling num
+    if intResampNum is None:
+        intResampNum = np.int64(250)
+    else:
+        intResampNum = np.int64(intResampNum)
+        assert intResampNum.size == 1 and intResampNum > 1, "intResampNum is not a positive integer"
+
+    # plotting
+    if boolPlot is None:
+        boolPlot = False
+    else:
+        assert isinstance(boolPlot, bool), "boolPlot is not a boolean"
+
+    # direct quantile comnputation
+    if boolDirectQuantile is None:
+        boolDirectQuantile = False
+    else:
+        assert isinstance(boolDirectQuantile, bool), "boolDirectQuantile is not a boolean"
+
+    # to do: parallel computing
+    boolParallel = False
+
+    # %% calculate zeta
+    vecEventStarts1 = arrEventTimes1[:, 0]
+    vecEventStarts2 = arrEventTimes2[:, 0]
+    # if len(vecEventStarts1) > 1 and (len(vecSpikeTimes1)+len(vecSpikeTimes2)) > 0 and dblUseMaxDur is not None and dblUseMaxDur > 0:
+    dZETA_Two = calcZetaTwo(vecSpikeTimes1, vecEventStarts1, vecSpikeTimes2,
+                            vecEventStarts2, dblUseMaxDur, intResampNum, boolDirectQuantile)
+
+    # %% calculate zeta
+    # update and unpack
+    dZETA.update(dZETA_Two)
+    vecSpikeT = dZETA['vecSpikeT']
+    vecRealDiff = dZETA['vecRealDiff']
+    dblZetaP = dZETA['dblZetaP']
+    intZetaIdx = dZETA['intZetaIdx']
+
+    # check if calculation is valid, otherwise return empty values
+    if intZetaIdx is None:
+        logging.warning("zetatest2: calculation failed, defaulting to p=1.0")
+        return dblZetaP, dZETA
+
+    # %% extract real outputs
+    # get location
+    dblZetaT = vecSpikeT[intZetaIdx]
+    dblZETADeviation = vecRealDiff[intZetaIdx]
+
+    # find peak of inverse sign
+    intZetaIdx_InvSign = np.argmax(-np.sign(dblZETADeviation)*vecRealDiff)
+    dblZetaT_InvSign = vecSpikeT[intZetaIdx_InvSign]
+    dblD_InvSign = vecRealDiff[intZetaIdx_InvSign]
+
+    # %% calculate mean-rate difference with t-test
+    if boolStopSupplied:
+        # calculate spike counts and durations during baseline and stimulus times
+        vecRespBinsDur = np.sort(np.reshape(arrEventTimes1, -1))
+        vecR, arrBins = np.histogram(vecSpikeTimes1, bins=vecRespBinsDur)
+        vecD = np.diff(vecRespBinsDur)
+        vecMu1 = np.divide(np.float64(vecR[0:len(vecR):2]), vecD[0:len(vecD):2])
+
+        # calculate mean rates during off-times
+        vecRespBinsDur = np.sort(np.reshape(arrEventTimes2, -1))
+        vecR, arrBins = np.histogram(vecSpikeTimes2, bins=vecRespBinsDur)
+        vecD = np.diff(vecRespBinsDur)
+        vecMu2 = np.divide(np.float64(vecR[0:len(vecR):2]), vecD[0:len(vecD):2])
+
+        # get metrics
+        dblMeanP = stats.ttest_rel(vecMu1, vecMu2)[1]
+        dblMeanZ = -stats.norm.ppf(dblMeanP/2)
+
+    # %% build output dictionary
+    # fill dZETA
+    dZETA['dblZETADeviation'] = dblZETADeviation
+    dZETA['dblZetaT'] = dblZetaT
+    if boolStopSupplied:
+        dZETA['dblMeanZ'] = dblMeanZ
+        dZETA['dblMeanP'] = dblMeanP
+        dZETA['vecMu1'] = vecMu1
+        dZETA['vecMu2'] = vecMu2
+
+    # inverse-sign ZETA
+    dZETA['dblD_InvSign'] = dblD_InvSign
+    dZETA['dblZetaT_InvSign'] = dblZetaT_InvSign
+    dZETA['intZetaIdx_InvSign'] = intZetaIdx_InvSign
+    # window used for analysis
+    dZETA['dblUseMaxDur'] = dblUseMaxDur
+
+    # %% plot
+    if boolPlot:
+        plotzeta2(vecSpikeTimes1, vecEventStarts1, vecSpikeTimes2, vecEventStarts2, dZETA)
+
+    # %% return outputs
+    return dblZetaP, dZETA
 
 # %% time-series zeta
+
+
 def zetatstest(vecTime, vecValue, arrEventTimes,
-             dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, intUseJitterDistro=1):
+               dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, boolStitch=True):
     """
     Calculates responsiveness index zeta for timeseries data
 
     Montijn, J.S., Seignette, K., Howlett, M.H., Cazemier, J.L., Kamermans, M., Levelt, C.N.,
     and Heimel, J.A. (2021). A parameter-free statistical test for neuronal responsiveness.
     eLife 10, e71969.
-    
+
     Montijn J.S. and Heimel J.A. (2022). A novel and highly sensitive statistical test for calcium imaging.
    FENS meeting 2022, Poster S03-480
-    
+
     Syntax:
     dblZetaP,dZETA = zetatstest(vecTime, vecValue, arrEventTimes,
-                 dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, intUseJitterDistro=1):
+                 dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, boolStitch=True):
 
     Parameters
     ----------
@@ -51,10 +330,10 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     boolDirectQuantile: boolean
          switch to use the empirical null-distribution rather than the Gumbel approximation (default: False)
          [Note: requires many resamplings!]
-    intUseJitterDistro: integer
-        switch to use linear resampling (default, intUseJitterDistro=1) or uniform jitters (intUseJitterDistro=2)
+    boolStitch: boolean
+        switch to perform data stitching (default: True)
 
-        
+
     Returns
     -------
     dblZetaP : float
@@ -79,17 +358,19 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
             vecRealFracLinear; linear baseline of cumulative distribution
             matRandDeviation; baseline temporal deviation matrix of jittered data
             dblUseMaxDur; window length used to calculate ZETA
-            
+
 
     Code by Jorrit Montijn
 
     Version history:
     1.0 - 24 August 2023 Translation to python by Jorrit Montijn
+    1.1 - 25 Oct 2023 Removed jitter distro switch [by Jorrit Montijn]
+
     """
     # %% build placeholder outputs
     dblZetaP = 1.0
     dZETA = dict()
-    
+
     # fill dZETA
     # ZETA significance
     dZETA['dblZetaP'] = dblZetaP
@@ -126,7 +407,8 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     # %% prep data and assert inputs are correct
 
     # vecTime and vecValue must be [N by 1] arrays
-    assert len(vecTime.shape) == len(vecValue.shape) and vecTime.shape==vecValue.shape,"vecTime and vecValue have different shapes"
+    assert len(vecTime.shape) == len(
+        vecValue.shape) and vecTime.shape == vecValue.shape, "vecTime and vecValue have different shapes"
     assert (len(vecTime.shape) == 1 or vecTime.shape[1] == 1) and issubclass(
         vecTime.dtype.type, np.floating), "Input vecTime is not a 1D float np.array with >2 spike times"
     vecTime = vecTime.flatten()
@@ -134,7 +416,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     vecReorder = np.argsort(vecTime, axis=0)
     vecTime = vecTime[vecReorder]
     vecValue = vecValue[vecReorder]
-   
+
     # ensure orientation and assert that arrEventTimes is a 1D or N-by-2 array of floats
     assert len(arrEventTimes.shape) < 3 and issubclass(
         arrEventTimes.dtype.type, np.floating), "Input arrEventTimes is not a 1D or 2D float np.array"
@@ -174,7 +456,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
         assert np.all(vecEventOnDur > 0), "at least one event in arrEventTimes has a non-positive duration"
         vecMu_Dur = np.zeros(vecEventStops.shape)
         vecMu_Base = np.zeros(vecEventStops.shape)
-        
+
     else:
         boolStopSupplied = False
         dblMeanZ = np.nan
@@ -199,6 +481,8 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     # plotting
     if boolPlot is None:
         boolPlot = False
+    else:
+        assert isinstance(boolPlot, bool), "boolPlot is not a boolean"
 
     # jitter
     if dblJitterSize is None:
@@ -214,27 +498,28 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
         assert isinstance(boolDirectQuantile, bool), "boolDirectQuantile is not a boolean"
 
     # which jitter distro to use?
-    if intUseJitterDistro is None or intUseJitterDistro < 1 or intUseJitterDistro > 2:
-        intUseJitterDistro = 1
+    if boolStitch is None:
+        boolDirectQuantile = True
+    else:
+        assert isinstance(boolStitch, bool), "boolStitch is not a boolean"
 
     # sampling interval
-    dblSamplingInterval = np.median(np.diff(vecTime));
-    
+    dblSamplingInterval = np.median(np.diff(vecTime))
+
     # %% check data length
     dblDataT0 = np.min(vecTime)
     dblReqT0 = np.min(vecEventStarts) - dblJitterSize*dblUseMaxDur
     if dblDataT0 > dblReqT0:
         logging.warning("zetatstest: leading data preceding first event is insufficient for maximal jittering")
-        
+
     dblDataT_end = np.max(vecTime)
     dblReqT_end = np.max(vecEventStarts) + dblJitterSize*dblUseMaxDur + dblUseMaxDur
     if dblDataT_end < dblReqT_end:
         logging.warning("zetatstest: lagging data after last event is insufficient for maximal jittering")
-    
-    
+
     # %% calculate zeta
     dZETA_One = calcTsZetaOne(vecTime, vecValue, vecEventStarts, dblUseMaxDur, intResampNum,
-                            boolDirectQuantile, dblJitterSize, intUseJitterDistro)
+                              boolDirectQuantile, dblJitterSize, boolStitch)
 
     # update and unpack
     dZETA.update(dZETA_One)
@@ -257,7 +542,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
     # get location
     dblLatencyZETA = vecRealTime[intZETAIdx]
     dblZETADeviation = vecRealDeviation[intZETAIdx]
-    
+
     # find peak of inverse sign
     intIdx_InvSign = np.argmax(-np.sign(dblZETADeviation)*vecRealDeviation)
     dblLatencyInvZETA = vecRealTime[intIdx_InvSign]
@@ -265,40 +550,39 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 
     # %% calculate mean-rate difference
     if boolStopSupplied:
-        #pre-allocate
+        # pre-allocate
         intTimeNum = len(vecTime)-1
-        
-        #go through trials to build spike time vector
-        for intEvent,dblStimStartT in enumerate(vecEventStarts):
+
+        # go through trials to build spike time vector
+        for intEvent, dblStimStartT in enumerate(vecEventStarts):
             # %% get original times
             dblStimStopT = vecEventStops[intEvent]
             dblBaseStopT = dblStimStartT + dblUseMaxDur
             if (dblBaseStopT - dblStimStopT) <= 0:
                 raise Exception(
                     "Input error: event stop times do not precede the next stimulus' start time")
-                
-            intStartT = np.max([0,findfirst(vecTime > dblStimStartT) - 1])
-            intStopT = np.min([intTimeNum,findfirst(vecTime > dblStimStopT)+1])
-            intEndT = np.min([intTimeNum,findfirst(vecTime > dblBaseStopT)+1])
-            vecSelectFramesBase = np.arange(intStopT,intEndT)
-            vecSelectFramesStim = np.arange(intStartT,intStopT)
-            
+
+            intStartT = np.max([0, findfirst(vecTime > dblStimStartT) - 1])
+            intStopT = np.min([intTimeNum, findfirst(vecTime > dblStimStopT)+1])
+            intEndT = np.min([intTimeNum, findfirst(vecTime > dblBaseStopT)+1])
+            vecSelectFramesBase = np.arange(intStopT, intEndT)
+            vecSelectFramesStim = np.arange(intStartT, intStopT)
+
            #  %% get data
             vecUseBaseTrace = vecValue[vecSelectFramesBase]
             vecUseStimTrace = vecValue[vecSelectFramesStim]
-            
+
             # %% get activity
             vecMu_Base[intEvent] = np.mean(vecUseBaseTrace)
             vecMu_Dur[intEvent] = np.mean(vecUseStimTrace)
-        
-        #get metrics
+
+        # get metrics
         indUseTrials = np.logical_and(~np.isnan(vecMu_Dur), ~np.isnan(vecMu_Base))
         vecMu_Dur = vecMu_Dur[indUseTrials]
         vecMu_Base = vecMu_Base[indUseTrials]
         dblMeanP = stats.ttest_rel(vecMu_Dur, vecMu_Base)[1]
         dblMeanZ = -stats.norm.ppf(dblMeanP/2)
 
-    
     # %% build output structure
     # fill dZETA
     dZETA['dblZETADeviation'] = dblZETADeviation
@@ -328,9 +612,8 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 
 def zetatest(vecSpikeTimes, arrEventTimes,
              dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
-             tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
-             boolDirectQuantile=False, boolReturnRate=False, intUseJitterDistro=1):
-    
+             tplRestrictRange=(-np.inf, np.inf), boolStitch=True,
+             boolDirectQuantile=False, boolReturnRate=False):
     """
     Calculates neuronal responsiveness index ZETA.
 
@@ -341,7 +624,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     Syntax:
     dblZetaP,dZETA,dRate,vecLatencies = zetatest(vecSpikeTimes,arrEventTimes,
                                                    dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
-                                                   tplRestrictRange=(-np.inf, np.inf), boolStitch=True, 
+                                                   tplRestrictRange=(-np.inf, np.inf), boolStitch=True,
                                                    boolDirectQuantile=False, boolReturnRate=False):
 
     Parameters
@@ -370,8 +653,6 @@ def zetatest(vecSpikeTimes, arrEventTimes,
          [Note: requires many resamplings!]
     boolReturnRate : boolean
         switch to return dictionary with spiking rate features [note: return-time is much faster if this is False]
-    intUseJitterDistro : integer
-        switch to use linear resampling (default, intUseJitterDistro=1) or uniform jitters (intUseJitterDistro=2)
 
     Returns
     -------
@@ -423,12 +704,13 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     Code by Jorrit Montijn, Guido Meijer & Alexander Heimel
 
     Version history:
-    2.5 - 17 June 2020 Jorrit Montijn, translated to python by Alexander Heimel
-    2.5.1 - 18 February 2022 Bugfix by Guido Meijer of 1D arrEventTimes
-    2.6 - 20 February 2022 Refactoring of python code by Guido Meijer
+    2.5 - 17 June 2020 Translated to python [Alexander Heimel]
+    2.5.1 - 18 February 2022 Bugfix of 1D arrEventTimes [by Guido Meijer]
+    2.6 - 20 February 2022 Refactoring of python code [by Guido Meijer]
     3.0 - 16 Aug 2023 New port of zetatest to Python [by Jorrit Montijn]
     3.1 - 15 Sept 2023 Changed latency variable names, added intUseJitterDistro switch [by Jorrit Montijn]
-    
+    3.2 - 25 Oct 2023 Removed intUseJitterDistro switch [by Jorrit Montijn]
+
     """
 
     # %% build placeholder outputs
@@ -555,6 +837,8 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     # plotting
     if boolPlot is None:
         boolPlot = False
+    else:
+        assert isinstance(boolPlot, bool), "boolPlot is not a boolean"
 
     # jitter
     if dblJitterSize is None:
@@ -592,16 +876,12 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         logging.warning(
             "zetatest: boolReturnRate was False, but you requested plotting, so boolReturnRate is now set to True")
 
-    # which jitter distro to use?
-    if intUseJitterDistro is None or intUseJitterDistro < 1 or intUseJitterDistro > 2:
-        intUseJitterDistro = 1
-
     # to do: parallel computing
     boolParallel = False
 
     # %% calculate zeta
     dZETA_One = calcZetaOne(vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum,
-                            boolDirectQuantile, dblJitterSize, boolStitch, boolParallel, intUseJitterDistro)
+                            boolDirectQuantile, dblJitterSize, boolStitch, boolParallel)
 
     # update and unpack
     dZETA.update(dZETA_One)
@@ -646,7 +926,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         dblR1 = np.sum(np.logical_and(vecSpikeTimes > (dblStart1 - dblFirstPreDur), vecSpikeTimes < dblStart1))
         vecCounts = np.concatenate([[dblR1], vecR[1:len(vecR):2]])
         vecDurs = np.concatenate([[dblFirstPreDur], vecD[1:len(vecD):2]])
-        vecMu_Pre = np.divide(vecCounts,vecDurs)
+        vecMu_Pre = np.divide(vecCounts, vecDurs)
 
         # get metrics
         dblMeanP = stats.ttest_rel(vecMu_Dur, vecMu_Pre)[1]
@@ -658,7 +938,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         dblMeanRate = vecSpikeT.size/(dblUseMaxDur*vecEventStarts.size)
         vecRate, dRate = getMultiScaleDeriv(vecSpikeT, vecRealDeviation,
                                             dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur, boolParallel=boolParallel)
-        
+
         # %% calculate IFR statistics
         if vecRate is not None:
             # get IFR peak
@@ -666,16 +946,17 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             dRate.update(dPeak)
             if dRate['dblLatencyPeak'] is not None and ~np.isnan(dRate['dblLatencyPeak']):
                 # assign array data
-                intZetaIdxRate = min(max(0,intZETAIdx-1),len(vecRate)-1)
-                intZetaIdxInvRate = min(max(0,intIdx_InvSign-1),len(vecRate)-1)
-                
+                intZetaIdxRate = min(max(0, intZETAIdx-1), len(vecRate)-1)
+                intZetaIdxInvRate = min(max(0, intIdx_InvSign-1), len(vecRate)-1)
+
                 # get onset
                 dOnset = getOnset(vecRate, dRate['vecT'], dRate['dblLatencyPeak'], tplRestrictRange)
                 dRate['dblLatencyPeakOnset'] = dOnset['dblLatencyPeakOnset']
-                vecLatencies = [dblLatencyZETA, dblLatencyInvZETA, dRate['dblLatencyPeak'], dOnset['dblLatencyPeakOnset']]
+                vecLatencies = [dblLatencyZETA, dblLatencyInvZETA,
+                                dRate['dblLatencyPeak'], dOnset['dblLatencyPeakOnset']]
                 vecLatencyVals = [vecRate[intZetaIdxRate], vecRate[intZetaIdxInvRate],
                                   vecRate[dPeak['intPeakLoc']], dOnset['dblValue']]
-                
+
     # %% build output dictionary
     # fill dZETA
     dZETA['dblZETADeviation'] = dblZETADeviation
@@ -819,6 +1100,169 @@ def ifr(vecSpikeTimes, vecEventTimes,
     dIFR['vecScale'] = dMSD['vecScale']
     return vecTime, vecRate, dIFR
 
+# %% plotzeta2
+def plotzeta2(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, dZETA,
+              intPlotRandSamples=50, intPlotSpikeNum=10000):
+    '''
+    Creates figure for two-sample ZETA-test
+
+    Syntax:
+    plotzeta2(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, dZETA,
+              intPlotRandSamples=50, intPlotSpikeNum=10000)
+
+    Parameters
+    ----------
+    vecSpikeTimes1 : 1D array (float)
+        spike times (in seconds) for condition 1.
+    arrEventTimes1 : 1D or 2D array (float)
+        event on times (s) for condition 1, or [T x 2] including event off times to calculate mean-rate difference.
+    vecSpikeTimes2 : 1D array (float)
+        spike times (in seconds) for condition 2.
+    arrEventTimes2 : 1D or 2D array (float)
+        event on times (s) for condition 2, or [T x 2] including event off times to calculate mean-rate difference.
+    dZETA : dict
+        Output of zetatest2.
+    intPlotRandSamples : int, optional
+        Maximum number of random resampling to plot. The default is 50.
+    intPlotSpikeNum : int, optional
+        Maximum number of spikes to plot. The default is 10000.
+
+
+    Code by Jorrit Montijn
+
+    Version history:
+    1.0 - 25 October 2023 Created by Jorrit Montijn
+    '''
+    
+    # %% check input
+    
+    # vecSpikeTimes1 must be [S by 1] array
+    assert (len(vecSpikeTimes1.shape) == 1 or vecSpikeTimes1.shape[1] == 1) and issubclass(
+        vecSpikeTimes1.dtype.type, np.floating), "Input vecSpikeTimes1 is not a 1D float np.array with >2 spike times"
+    vecSpikeTimes1 = np.sort(vecSpikeTimes1.flatten(), axis=0)
+
+    # vecSpikeTimes2 must be [S by 1] array
+    assert (len(vecSpikeTimes2.shape) == 1 or vecSpikeTimes2.shape[1] == 1) and issubclass(
+        vecSpikeTimes2.dtype.type, np.floating), "Input vecSpikeTimes2 is not a 1D float np.array with >2 spike times"
+    vecSpikeTimes2 = np.sort(vecSpikeTimes2.flatten(), axis=0)
+
+    # ensure orientation and assert that arrEventTimes1 is a 1D or N-by-2 array of floats
+    assert len(arrEventTimes1.shape) < 3 and issubclass(
+        arrEventTimes1.dtype.type, np.floating), "Input arrEventTimes1 is not a 1D or 2D float np.array"
+    if len(arrEventTimes1.shape) > 1:
+        if arrEventTimes1.shape[1] < 3:
+            pass
+        elif arrEventTimes1.shape[0] < 3:
+            arrEventTimes1 = arrEventTimes1.T
+        else:
+            raise Exception(
+                "Input error: arrEventTimes1 must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
+    else:
+        # turn into T-by-1 array
+        arrEventTimes1 = np.reshape(arrEventTimes1, (-1, 1))
+    # define event starts
+    vecEventStarts1 = arrEventTimes1[:, 0]
+
+    # ensure orientation and assert that arrEventTimes2 is a 1D or N-by-2 array of floats
+    assert len(arrEventTimes2.shape) < 3 and issubclass(
+        arrEventTimes2.dtype.type, np.floating), "Input arrEventTimes2 is not a 1D or 2D float np.array"
+    if len(arrEventTimes2.shape) > 1:
+        if arrEventTimes2.shape[1] < 3:
+            pass
+        elif arrEventTimes2.shape[0] < 3:
+            arrEventTimes2 = arrEventTimes2.T
+        else:
+            raise Exception(
+                "Input error: arrEventTimes2 must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
+    else:
+        # turn into T-by-1 array
+        arrEventTimes2 = np.reshape(arrEventTimes2, (-1, 1))
+    # define event starts
+    vecEventStarts2 = arrEventTimes2[:, 0]
+
+    # unpack dZETA
+    try:
+        dblUseMaxDur = dZETA['dblUseMaxDur']
+        dblZETA = dZETA['dblZETA']
+        dblZetaP = dZETA['dblZetaP']
+        dblZETADeviation = dZETA['dblZETADeviation']
+        dblZetaT = dZETA['dblZetaT']
+        intZetaIdx = dZETA['intZetaIdx']
+        
+        dblD_InvSign = dZETA['dblD_InvSign']
+        dblZetaT_InvSign = dZETA['dblZetaT_InvSign']
+        intZetaIdx_InvSign = dZETA['intZetaIdx_InvSign']
+
+        dblMeanZ = dZETA['dblMeanZ']
+        dblMeanP = dZETA['dblMeanP']
+
+        vecSpikeT = dZETA['vecSpikeT']
+        vecRealDiff = dZETA['vecRealDiff']
+        vecRealFrac1 = dZETA['vecRealFrac1']
+        vecRealFrac2 = dZETA['vecRealFrac2']
+        cellRandTime = dZETA['cellRandTime']
+        cellRandDiff = dZETA['cellRandDiff']
+
+    except:
+        raise Exception(
+            "plotzeta2 error: information is missing from dZETA dictionary")
+
+    # %% plot
+    # Plot maximally 50 traces (or however man y are requested)
+    intPlotRandSamples = np.min([len(cellRandTime), intPlotRandSamples])
+
+    # Calculate optimal DPI depending on the monitor size
+    screen_width = tk.Tk().winfo_screenwidth()
+    dpi = screen_width / 15
+
+    # Create figure
+    f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 6), dpi=dpi)
+
+    # reduce spikes
+    if vecSpikeTimes1.size > intPlotSpikeNum or vecSpikeTimes2.size > intPlotSpikeNum:
+        dblReduceSpikesBy = min(vecSpikeTimes1.size / intPlotSpikeNum, vecSpikeTimes2.size / intPlotSpikeNum)
+        intPlotSpikeNum1 = np.round(dblReduceSpikesBy * vecSpikeTimes1.size)
+        intPlotSpikeNum2 = np.round(dblReduceSpikesBy * vecSpikeTimes2.size)
+        vecSpikeT1_reduced = vecSpikeTimes1[np.round(np.linspace(0, vecSpikeTimes1.size-1, intPlotSpikeNum1))]
+        vecSpikeT2_reduced = vecSpikeTimes1[np.round(np.linspace(0, vecSpikeTimes2.size-1, intPlotSpikeNum2))]
+    else:
+        vecSpikeT1_reduced = vecSpikeTimes1
+        vecSpikeT2_reduced = vecSpikeTimes2
+
+    # top left: raster 1
+    for i, t in enumerate(vecEventStarts1):
+        idx = np.bitwise_and(vecSpikeT1_reduced >= t, vecSpikeT1_reduced <= t + dblUseMaxDur)
+        event_spks = vecSpikeT1_reduced[idx]
+        ax1.vlines(event_spks - t, i + 1, i, color='k', lw=0.3)
+    ax1.set(xlabel='Time after event (s)', ylabel='Trial #', title='Spike raster plot 1')
+
+    # bottom left: raster 2
+    for i, t in enumerate(vecEventStarts2):
+        idx = np.bitwise_and(vecSpikeT2_reduced >= t, vecSpikeT2_reduced <= t + dblUseMaxDur)
+        event_spks = vecSpikeT2_reduced[idx]
+        ax3.vlines(event_spks - t, i + 1, i, color='k', lw=0.3)
+    ax3.set(xlabel='Time after event (s)', ylabel='Trial #', title='Spike raster plot 2')
+
+    
+    # top right: cumulative sums
+    ax3.plot(vecSpikeT, vecRealFrac1)
+    ax3.plot(vecSpikeT, vecRealFrac2)
+    ax3.set(xlabel='Time after event (s)', ylabel='Scaled cumulative spiking density (s)')
+
+    # bottom right: deviation with random jitters
+    for i in range(intPlotRandSamples-1):
+        ax4.plot(cellRandTime[i], cellRandDiff[i], color=[0.7, 0.7, 0.7])
+    ax4.plot(vecSpikeT, vecRealDiff)
+    ax4.plot(dblZetaT, dblZETADeviation, 'bx')
+    ax4.plot(dblZetaT_InvSign, dblD_InvSign, 'b*')
+    ax4.set(xlabel='Time after event (s)', ylabel='Difference in cumulative density (s)')
+    if dblMeanZ is not None:
+        ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), z(Hz)={dblMeanZ:.3f} (p={dblMeanP:.3f})')
+    else:
+        ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f})')
+
+    f.tight_layout()
+    plt.show()
 
 # %% plotzeta
 def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
@@ -850,7 +1294,7 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
     Version history:
     1.0 - 07 September 2023 Created by Jorrit Montijn
     '''
-    
+
     # %% check input
     # vecSpikeTimes must be [S by 1] array
     assert (len(vecSpikeTimes.shape) == 1 or vecSpikeTimes.shape[1] == 1) and issubclass(
@@ -961,34 +1405,36 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
     # bottom right: ifr
     if len(vecRateT) > 1000:
         vecSubset = np.round(np.linspace(0, len(vecRateT)-1, 1000)).astype(int)
-        ax4.plot(vecRateT[vecSubset],vecRate[vecSubset])
+        ax4.plot(vecRateT[vecSubset], vecRate[vecSubset])
     else:
-        ax4.plot(vecRateT,vecRate)
+        ax4.plot(vecRateT, vecRate)
 
     if dblMeanRate == 1:
         strLabelY = 'Time-locked activation (a.u.)'
     else:
         strLabelY = 'Spiking rate (Hz)'
     ax4.set(xlabel='Time after event (s)', ylabel=strLabelY, title='IFR (instantaneous firing rate)')
-    
+
     # plot onsets
     vecLatencies = dZETA['vecLatencies']
     vecLatencyVals = dZETA['vecLatencyVals']
     if len(vecLatencies) > 2 and vecLatencies[2] is not None and ~np.isnan(vecLatencies[2]):
-        #plot peak time
+        # plot peak time
         ax4.plot(vecLatencies[2], vecLatencyVals[2], 'gx')
-        
+
     if len(vecLatencies) > 3 and vecLatencies[3] is not None and ~np.isnan(vecLatencies[3]):
-        #plot onset time
+        # plot onset time
         ax4.plot(vecLatencies[3], vecLatencyVals[3], 'rx')
-        
+
     f.tight_layout()
     plt.show()
 
 # %% plottszeta
+
+
 def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
     '''
-    
+
 
     Parameters
     ----------
@@ -1003,17 +1449,18 @@ def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
     intPlotRandSamples : int, optional
         Maximum number of random resampling to plot. The default is 50.
 
-    
+
     Code by Jorrit Montijn
-    
+
     Version history:
     1.0 - 07 September 2023 Created by Jorrit Montijn
     '''
-    
+
     # %% prep data and assert inputs are correct
-    
+
     # vecTime and vecValue must be [N by 1] arrays
-    assert len(vecTime.shape) == len(vecData.shape) and vecTime.shape==vecData.shape,"vecTime and vecValue have different shapes"
+    assert len(vecTime.shape) == len(
+        vecData.shape) and vecTime.shape == vecData.shape, "vecTime and vecValue have different shapes"
     assert (len(vecTime.shape) == 1 or vecTime.shape[1] == 1) and issubclass(
         vecTime.dtype.type, np.floating), "Input vecTime is not a 1D float np.array with >2 spike times"
     vecTime = vecTime.flatten()
@@ -1021,7 +1468,7 @@ def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
     vecReorder = np.argsort(vecTime, axis=0)
     vecTime = vecTime[vecReorder]
     vecData = vecData[vecReorder]
-    
+
     # ensure orientation and assert that arrEventTimes is a 1D or N-by-2 array of floats
     assert len(arrEventTimes.shape) < 3 and issubclass(
         arrEventTimes.dtype.type, np.floating), "Input arrEventTimes is not a 1D or 2D float np.array"
@@ -1038,7 +1485,7 @@ def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
         arrEventTimes = np.reshape(arrEventTimes, (-1, 1))
     # define event starts
     vecEventTimes = arrEventTimes[:, 0]
-    
+
     # check if number of events and values is sufficient
     if vecTime.size < 3 or vecEventTimes.size < 3:
         if vecTime.size < 3:
@@ -1087,47 +1534,47 @@ def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
     # %% calculate heat map
     # sampling interval
     dblSamplingInterval = np.median(np.diff(vecTime))
-    vecRefT = np.arange(dblSamplingInterval/2,dblUseMaxDur,dblSamplingInterval)
-    vecRefT,matAct = getInterpolatedTimeSeries(vecTime, vecData, vecEventTimes, vecRefT)
+    vecRefT = np.arange(dblSamplingInterval/2, dblUseMaxDur, dblSamplingInterval)
+    vecRefT, matAct = getInterpolatedTimeSeries(vecTime, vecData, vecEventTimes, vecRefT)
 
     # %% plot
     # Plot maximally 50 traces (or however man y are requested)
     intPlotRandSamples = np.min([len(cellRandTime), intPlotRandSamples])
-   
+
     # Calculate optimal DPI depending on the monitor size
     screen_width = tk.Tk().winfo_screenwidth()
     dpi = screen_width / 15
-   
+
     # Create figure
     f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 6), dpi=dpi)
-   
+
     # top left: heat map
     x0 = vecRefT[1]
     x1 = vecRefT[-1]
     xw = x1-x0
     intTrialNum = matAct.shape[0]
     yh = intTrialNum-1
-    pos = ax1.imshow(matAct, interpolation='none', extent=[x0,x1,1,intTrialNum])
+    pos = ax1.imshow(matAct, interpolation='none', extent=[x0, x1, 1, intTrialNum])
     ax1.set_aspect((xw/yh)/2)
     ax1.set(xlabel='Time after event (s)', ylabel='Trial number',
             title='Color indicates data value')
     f.colorbar(pos, ax=ax1)
-    
+
     # top right: mean +/- SEM
-    vecMean = np.mean(matAct,axis=0)
-    vecSem = np.std(matAct,axis=0)/np.sqrt(intTrialNum)
+    vecMean = np.mean(matAct, axis=0)
+    vecSem = np.std(matAct, axis=0)/np.sqrt(intTrialNum)
     ax2.errorbar(vecRefT, vecMean, yerr=vecSem)
     ax2.set(xlabel='Time after event (s)', ylabel='Data value',
             title='Mean +/- SEM over trials')
-   
-    #bottom left: cumulative plots
+
+    # bottom left: cumulative plots
     vecRealTime = dZETA['vecRealTime']
     vecRealFrac = dZETA['vecRealFrac']
     vecRealFracLinear = dZETA['vecRealFracLinear']
     ax3.plot(vecRealTime, vecRealFrac)
     ax3.plot(vecRealTime, vecRealFracLinear, color=[0.7, 0.7, 0.7])
     ax3.set(xlabel='Time after event (s)', ylabel='Cumulative data', title='Time-series zeta-test')
-    
+
     # bottom right: deviation with random jitters
     for i in range(intPlotRandSamples-1):
         ax4.plot(cellRandTime[i], cellRandDeviation[i], color=[0.7, 0.7, 0.7])
@@ -1139,6 +1586,6 @@ def plottszeta(vecTime, vecData, arrEventTimes, dZETA, intPlotRandSamples=50):
         ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), z(Hz)={dblMeanZ:.3f} (p={dblMeanP:.3f})')
     else:
         ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f})')
-   
+
     f.tight_layout()
     plt.show()

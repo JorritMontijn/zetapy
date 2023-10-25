@@ -5,10 +5,19 @@ from math import factorial
 from zetapy.dependencies import (findfirst, getZetaP)
 
 # %%
-def calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, intUseJitterDistro):
+def calcTsZetaTwo(vecTimestamps1, vecData1, arrEventTimes1, vecTimestamps2, vecData2, arrEventTimes2, dblUseMaxDur, intResampNum, boolDirectQuantile):
     """
    Calculates neuronal responsiveness index zeta
-    dZETA = calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, intUseJitterDistro)
+    dZETA = calcTsZetaTwo(vecTimestamps1, vecData1, arrEventTimes1, vecTimestamps2, vecData2, arrEventTimes2, dblUseMaxDur, intResampNum, boolDirectQuantile)
+    dZETA has entries:
+        vecRealTime, vecRealDeviation, vecRealFrac, vecRealFracLinear, cellRandTime, cellRandDeviation, dblZetaP, dblZETA, intZETAIdx
+    """
+
+# %%
+def calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch):
+    """
+   Calculates neuronal responsiveness index zeta
+    dZETA = calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch)
     dZETA has entries:
         vecRealTime, vecRealDeviation, vecRealFrac, vecRealFracLinear, cellRandTime, cellRandDeviation, dblZetaP, dblZETA, intZETAIdx
     """
@@ -65,20 +74,21 @@ def calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResamp
             "calcTsZetaOne:vecTimestamps: too few entries around events to calculate zeta")
         return dZETA
 
-    # %% check jitter #
-    if intUseJitterDistro == 1:
-        intTrialN = len(vecEventT)
-        if intResampNum > factorial(intTrialN):
-            logging.warning('calcZetaOne:JitterDistro: Requested # of resamplings is larger than factorial(intTrialNum); duplicates will exist')
-
     # %% build pseudo data, stitching stimulus periods
-    vecPseudoT,vecPseudoV,vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
+    vecPseudoT, vecPseudoV, vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
     vecPseudoV = vecPseudoV - np.min(vecPseudoV)
     if vecTimestamps.size < 3:
         logging.warning(
             "calcTsZetaOne:vecPseudoT: too few entries around events to calculate zeta")
         return dZETA
     
+    if boolStitch:
+        vecPseudoT, vecPseudoV, vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
+    else:
+        vecPseudoT = vecTimestamps
+        vecPseudoV = vecData
+        vecPseudoEventT = vecEventT
+
     # %% run normal
     # get data
     vecRealDeviation, vecRealFrac, vecRealFracLinear, vecRealTime = getTimeseriesOffsetOne(vecPseudoT,vecPseudoV, vecPseudoEventT, dblUseMaxDur)
@@ -103,18 +113,10 @@ def calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResamp
     intTrials = vecStartOnly.size
     matJitterPerTrial = np.empty((intTrials, intResampNum))
     matJitterPerTrial.fill(np.nan)
-    if intUseJitterDistro == 1:
-        #random resampling of linear spacing between dblJitterSize*[-tau, +tau]
-        vecJitterPerTrial = np.multiply(dblJitterSize, np.linspace(-dblUseMaxDur, dblUseMaxDur, num=intTrials))
-        for intResampling in range(intResampNum):
-            vecRandPerm = np.random.permutation(intTrials)
-            matJitterPerTrial[:, intResampling] = vecJitterPerTrial[vecRandPerm]
-    elif intUseJitterDistro == 2:
-        #uniform jitters between dblJitterSize*[-tau, +tau]
-        for intResampling in range(intResampNum):
-            matJitterPerTrial[:, intResampling] = dblJitterSize*dblUseMaxDur*((np.random.rand(vecStartOnly.shape[0]) - 0.5) * 2)
-    else:
-        raise Exception("Input error: intUseJitterDistro must be 1 or 2")
+    # uniform jitters between dblJitterSize*[-tau, +tau]
+    for intResampling in range(intResampNum):
+        matJitterPerTrial[:, intResampling] = dblJitterSize*dblUseMaxDur * \
+            ((np.random.rand(vecStartOnly.shape[0]) - 0.5) * 2)
 
     # %% this part is only to check if matlab and python give the same exact results
     # unfortunately matlab's randperm() and numpy's np.random.permutation give different outputs even with
