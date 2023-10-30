@@ -13,6 +13,96 @@ import tkinter as tk
 from scipy.signal import convolve, gaussian
 from zetapy.ts_dependencies import getInterpolatedTimeSeries
 
+# %% plottszeta2
+def plottszeta2(dZETA, intPlotRandSamples=50):
+    '''
+    Creates figure for two-sample time-series ZETA-test
+
+    Syntax:
+    plottszeta2(dZETA, intPlotRandSamples=50)
+    '''
+    
+    # unpack dZETA
+    try:
+        dblZetaP = dZETA['dblZetaP']
+        dblZETA = dZETA['dblZETA']
+        dblZETADeviation = dZETA['dblZETADeviation']
+        dblZETATime = dZETA['dblZETATime']
+        intZETAIdx = dZETA['intZETAIdx']
+        dblMeanZ   = dZETA['dblMeanZ']
+        dblMeanP  = dZETA['dblMeanP']
+        vecMu1 = dZETA['vecMu1']
+        vecMu2  = dZETA['vecMu2']
+        dblZETADeviation_InvSign = dZETA['dblZETADeviation_InvSign']
+        dblZETATime_InvSign = dZETA['dblZETATime_InvSign']
+        intZETAIdx_InvSign = dZETA['intZETAIdx_InvSign']
+        vecRefTime = dZETA['vecRefTime']
+        vecRealDiff = dZETA['vecRealDiff']
+        matRandDiff = dZETA['matRandDiff']
+        vecRealFrac1 = dZETA['vecRealFrac1']
+        vecRealFrac2 = dZETA['vecRealFrac2']
+        dblUseMaxDur = dZETA['dblUseMaxDur']
+        matTracePerTrial1 = dZETA['matTracePerTrial1']
+        matTracePerTrial2 = dZETA['matTracePerTrial2']
+    except:
+        raise Exception(
+            "plotzeta2 error: information is missing from dZETA dictionary")
+
+    # %% plot
+    # Plot maximally 50 traces (or however man y are requested)
+    intPlotRandSamples = np.min([matRandDiff.shape[0], intPlotRandSamples])
+
+    # Calculate optimal DPI depending on the monitor size
+    screen_width = tk.Tk().winfo_screenwidth()
+    dpi = screen_width / 15
+
+    # Create figure
+    f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 6), dpi=dpi)
+    
+    # top left: heat map 1
+    x0 = vecRefTime[1]
+    x1 = vecRefTime[-1]
+    xw = x1-x0
+    intTrialNum1 = matTracePerTrial1.shape[0]
+    yh = intTrialNum1-1
+    pos = ax1.imshow(matTracePerTrial1, interpolation='none', extent=[x0, x1, 1, intTrialNum1])
+    ax1.set_aspect((xw/yh)/2)
+    ax1.set(xlabel='Time after event (s)', ylabel='Trial number',
+            title='Cond1; Color indicates data value')
+    f.colorbar(pos, ax=ax1)
+
+    # bottom left: heat map 2
+    x0 = vecRefTime[1]
+    x1 = vecRefTime[-1]
+    xw = x1-x0
+    intTrialNum2 = matTracePerTrial2.shape[0]
+    yh = intTrialNum2-1
+    pos = ax2.imshow(matTracePerTrial2, interpolation='none', extent=[x0, x1, 1, intTrialNum2])
+    ax2.set_aspect((xw/yh)/2)
+    ax2.set(xlabel='Time after event (s)', ylabel='Trial number',
+            title='Cond2; Color indicates data value')
+    f.colorbar(pos, ax=ax2)
+    
+    # top right: cumulative sums
+    ax3.plot(vecRefTime, vecRealFrac1)
+    ax3.plot(vecRefTime, vecRealFrac2)
+    ax3.set(xlabel='Time after event (s)', ylabel='Scaled cumulative data (s)')
+
+    # bottom right: deviation with random bootstraps
+    for i in range(intPlotRandSamples-1):
+        ax4.plot(vecRefTime, matRandDiff[i,:], color=[0.7, 0.7, 0.7])
+    ax4.plot(vecRefTime, vecRealDiff)
+    ax4.plot(dblZETATime, dblZETADeviation, 'bx')
+    ax4.plot(dblZETATime_InvSign, dblZETADeviation_InvSign, 'b*')
+    ax4.set(xlabel='Time after event (s)', ylabel='Difference in cumulative density')
+    if dblMeanZ is not None:
+        ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f}), z(Hz)={dblMeanZ:.3f} (p={dblMeanP:.3f})')
+    else:
+        ax4.set(title=f'ZETA={dblZETA:.3f} (p={dblZetaP:.3f})')
+
+    f.tight_layout()
+    plt.show()
+
 # %% plotzeta2
 def plotzeta2(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, dZETA,
               intPlotRandSamples=50, intPlotSpikeNum=10000):
