@@ -199,23 +199,24 @@ print(f"\nAre two neurons responding differently? (elapsed time: {dblElapsedT5:.
 
 
 # case 2a: is neuron 1 responding differently to gratings oriented at 0 and 90 degrees?
-vecTrials1 = sStim.Orientation==0;
-vecTrials2 = sStim.Orientation==90;
+vecTrials1 = vecOrientation==0;
+vecTrials2 = vecOrientation==90;
 print('\nRunning two-sample zeta-test on one neuron, different stimuli\n')
 t = time.time()
-dblZetaTwoSample2a,sZETA2a = zetatest2(vecSpikeTimes1,arrEventTimes[vecTrials1,:],vecSpikeTimes1,arrEventTimes[vecTrials2,:],
+dblZetaTwoSample2a,dZETA2a = zetatest2(vecSpikeTimes1,arrEventTimes[vecTrials1,:],vecSpikeTimes1,arrEventTimes[vecTrials2,:],
                                        dblUseMaxDur,intResampNum,boolPlot=True)
 dblElapsedT6 = time.time() - t
 print(f"\nIs neuron 1 responding differently to 0 and 90 degree stimuli? (elapsed time: {dblElapsedT6:.2f} s): \
-      \ntwo-sample zeta-test p-value: {dblZetaTwoSample2a}\nt-test p-value:{sZETA2a['dblMeanP']}")
+      \ntwo-sample zeta-test p-value: {dblZetaTwoSample2a}\nt-test p-value:{dZETA2a['dblMeanP']}")
 
-#case 2b: is neuron 2 responding differently to gratings oriented at 30 and 60 degrees?
+#case 2b: is neuron 2 responding differently to gratings oriented at 0 and 90 degrees?
 t = time.time()
-[dblZetaTwoSample2b,sZETA2b] = zetatest2(vecSpikeTimes2,arrEventTimes[vecTrials1,:],vecSpikeTimes2,arrEventTimes[vecTrials2,:],
+intResampNum = 1000; #this difference is close to our threshold p=0.05, so we're increasing the number of bootstraps
+[dblZetaTwoSample2b,dZETA2b] = zetatest2(vecSpikeTimes2,arrEventTimes[vecTrials1,:],vecSpikeTimes2,arrEventTimes[vecTrials2,:],
                                          dblUseMaxDur,intResampNum,boolPlot=True)
 dblElapsedT7 = time.time() - t
 print(f"\nIs neuron 2 responding differently to 0 and 90 degree stimuli? (elapsed time: {dblElapsedT7:.2f} s): \
-      \ntwo-sample zeta-test p-value: {dblZetaTwoSample2b}\nt-test p-value:{sZETA2b['dblMeanP']}")
+      \ntwo-sample zeta-test p-value: {dblZetaTwoSample2b}\nt-test p-value:{dZETA2b['dblMeanP']}")
 
 
 # %% finally, the two-sample time-series ZETA test

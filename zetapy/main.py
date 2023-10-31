@@ -356,7 +356,7 @@ def zetatstest2(vecTime1, vecValue1, arrEventTimes1, vecTime2, vecValue2, arrEve
         vecMu2 = vecMu_Dur2 - vecMu_Base2
 
         # get metrics
-        dblMeanP = stats.ttest_rel(vecMu1, vecMu2)[1]
+        dblMeanP = stats.ttest_ind(vecMu1, vecMu2)[1]
         dblMeanZ = -stats.norm.ppf(dblMeanP/2)
 
     # %% build output structure
@@ -642,7 +642,7 @@ def zetatest2(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2,
         vecMu2 = np.divide(np.float64(vecR[0:len(vecR):2]), vecD[0:len(vecD):2])
 
         # get metrics
-        dblMeanP = stats.ttest_rel(vecMu1, vecMu2)[1]
+        dblMeanP = stats.ttest_ind(vecMu1, vecMu2)[1]
         dblMeanZ = -stats.norm.ppf(dblMeanP/2)
 
     # %% build output dictionary

@@ -308,7 +308,7 @@ def getTempOffsetTwo(cellTimePerSpike1, cellTimePerSpike2, dblUseMaxDur):
     # introduce minimum jitter to identical spikes
     vecSpikes1 = flatten(cellTimePerSpike1)
     vecSpikes2 = flatten(cellTimePerSpike2)
-    vecSpikes1
+    
     vecThisSpikeTimes1 = getUniqueSpikes(np.sort(vecSpikes1))
     vecThisSpikeTimes2 = getUniqueSpikes(np.sort(vecSpikes2))
 
@@ -323,17 +323,21 @@ def getTempOffsetTwo(cellTimePerSpike1, cellTimePerSpike2, dblUseMaxDur):
     intT2 = len(cellTimePerSpike2)
 
     # spike fraction #1
-    vecUniqueSpikeFracs1 = np.linspace(1/vecThisSpikeTimes1.size, 1, vecThisSpikeTimes1.size)
+    vecUniqueSpikeFracs1 = np.linspace(1, vecThisSpikeTimes1.size, vecThisSpikeTimes1.size)/intT1
+    vecSpikes1 = np.concatenate((np.zeros(1), vecThisSpikeTimes1, np.array([dblUseMaxDur])), axis=0)
+    vecFracs1 = np.concatenate((np.zeros(1), vecUniqueSpikeFracs1, np.array([intSp1/intT1])), axis=0)
     vecThisFrac1 = np.interp(vecSpikeT,
-                             np.concatenate((np.zeros(1), vecThisSpikeTimes1, np.array([dblUseMaxDur])), axis=0),
-                             np.concatenate((np.zeros(1), vecUniqueSpikeFracs1, np.array([intSp1/intT1])), axis=0),
+                             vecSpikes1,
+                             vecFracs1,
                              1/intT1, intSp1/intT1)
 
     # spike fraction #2
-    vecUniqueSpikeFracs2 = np.linspace(1/vecThisSpikeTimes2.size, 1, vecThisSpikeTimes2.size)
+    vecUniqueSpikeFracs2 = np.linspace(1, vecThisSpikeTimes2.size, vecThisSpikeTimes2.size)/intT2
+    vecSpikes2 = np.concatenate((np.zeros(1), vecThisSpikeTimes2, np.array([dblUseMaxDur])), axis=0)
+    vecFracs2 = np.concatenate((np.zeros(1), vecUniqueSpikeFracs2, np.array([intSp2/intT2])), axis=0)
     vecThisFrac2 = np.interp(vecSpikeT,
-                             np.concatenate((np.zeros(1), vecThisSpikeTimes2, np.array([dblUseMaxDur])), axis=0),
-                             np.concatenate((np.zeros(1), vecUniqueSpikeFracs2, np.array([intSp2/intT2])), axis=0),
+                             vecSpikes2,
+                             vecFracs2,
                              1/intT2, intSp2/intT2)
 
     # take difference

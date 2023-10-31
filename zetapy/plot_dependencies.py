@@ -248,9 +248,9 @@ def plotzeta2(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, dZ
 
     
     # top right: cumulative sums
-    ax3.plot(vecSpikeT, vecRealFrac1)
-    ax3.plot(vecSpikeT, vecRealFrac2)
-    ax3.set(xlabel='Time after event (s)', ylabel='Scaled cumulative spiking density (s)')
+    ax2.plot(vecSpikeT, vecRealFrac1)
+    ax2.plot(vecSpikeT, vecRealFrac2)
+    ax2.set(xlabel='Time after event (s)', ylabel='Scaled cumulative spiking density (s)')
 
     # bottom right: deviation with random jitters
     for i in range(intPlotRandSamples-1):
