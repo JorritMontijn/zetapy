@@ -9,11 +9,9 @@ setup(
     author_email='j.s.montijn@gmail.com',
     license='GNU General Public License',
     packages=['zetapy'],
-    install_requires=['scipy', 'numpy', 'matplotlib', 'logging', 'collections', 'time', 'math', 'tkinter'],
+    install_requires=['scipy', 'numpy', 'matplotlib'],
 
     classifiers=[
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
