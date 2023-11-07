@@ -2,6 +2,7 @@
 import numpy as np
 import logging
 from scipy import stats
+from numba import njit
 from math import pi, sqrt, exp, factorial
 from collections.abc import Iterable
 
@@ -530,35 +531,29 @@ def getUniqueSpikes(vecSpikesInTrial):
 # %%
 
 
+@njit
 def getSpikeT(vecSpikeTimes, vecEventTimes, dblUseMaxDur):
-    # %% turn spike times relative to recording start into times relative to trial start
-
-    # pre-allocate
-    vecSpikesInTrial = np.empty((vecSpikeTimes.size*2))
-    vecSpikesInTrial.fill(np.nan)
-    intIdx = 0
-
-    # go through trials to build spike time vector
-    for dblStartT in vecEventTimes:
-        # get times
-        dblStopT = dblStartT + dblUseMaxDur
-
-        # build trial assignment
-        vecTempSpikes = vecSpikeTimes[np.logical_and(vecSpikeTimes < dblStopT, vecSpikeTimes > dblStartT)] - dblStartT
-        intTempSpikeNr = vecTempSpikes.size
-        vecAssignIdx = [i for i in range(intIdx, intIdx+intTempSpikeNr)]
-        if len(vecAssignIdx) > 0 and vecAssignIdx[-1] >= vecSpikesInTrial.size:
-            vecSpikesInTrial = np.resize(vecSpikesInTrial, vecSpikesInTrial.size*2)
-        vecSpikesInTrial[vecAssignIdx] = vecTempSpikes
-        intIdx = intIdx + intTempSpikeNr
-
-    # remove trailing nan entries
-    vecSpikesInTrial = vecSpikesInTrial[:intIdx]
-
-    # sort spikes in window and add start/end entries
-    vecSpikesInTrial = np.concatenate((np.zeros(1), np.sort(vecSpikesInTrial, axis=0), np.array([dblUseMaxDur])))
-
-    return vecSpikesInTrial
+    # sorted vec of spike times relative to recording start
+    # are expressed as times relative to the preceeding event time
+    # vecSpikeTimes should be sorted.
+    
+    # use np.searchsorted here for performance.
+    # find the indexes into vecSpikeTimes that vecEventTimes occur at
+    Sidx = np.searchsorted(vecSpikeTimes, vecEventTimes)
+    # do same for event 'ends'
+    Eidx = np.searchsorted(vecSpikeTimes, vecEventTimes+dblUseMaxDur)
+    # use the start and stop indexs to pre-index right size array.
+    # add two extra slots for the beginning [0] and end [dblUseMaxDur]
+    vecSpikesInTrial = np.empty(np.sum(Eidx-Sidx)+2)
+    vecSpikesInTrial[0] = 0
+    vecSpikesInTrial[-1] = dblUseMaxDur
+    # loop over trials to fill spike time vector
+    cnt = 1
+    for i,dblStartT in enumerate(vecEventTimes):
+        vecSpikesInTrial[cnt:cnt+Eidx[i]-Sidx[i]]=\
+            vecSpikeTimes[Sidx[i]:Eidx[i]]-dblStartT
+        cnt+=Eidx[i]-Sidx[i]
+    return np.sort(vecSpikesInTrial)
 
 # %%
 
