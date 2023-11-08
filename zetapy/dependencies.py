@@ -4,6 +4,7 @@ import logging
 from scipy import stats
 from math import pi, sqrt, exp, factorial
 from collections.abc import Iterable
+from numba import njit
 
 # %% calcZetaTwo
 
@@ -512,6 +513,7 @@ def getTempOffsetOne(vecSpikeTimes, vecEventTimes, dblUseMaxDur):
 
 def getUniqueSpikes(vecSpikesInTrial):
     # introduce minimum jitter to identical spikes
+    vecSpikesInTrial = np.sort(vecSpikesInTrial, axis=0)
     vecThisSpikeTimes, vecIdx = np.unique(vecSpikesInTrial, return_index=True)
     indDuplicates = np.concatenate((np.diff(vecIdx) > 1, [False]))
     vecNotUnique = vecSpikesInTrial[vecIdx[indDuplicates]]
@@ -528,9 +530,34 @@ def getUniqueSpikes(vecSpikesInTrial):
     return vecThisSpikeTimes
 
 # %%
-
+@njit
 
 def getSpikeT(vecSpikeTimes, vecEventTimes, dblUseMaxDur):
+    # sorted vec of spike times relative to recording start
+    # are expressed as times relative to the preceeding event time
+    # vecSpikeTimes should be sorted.
+    
+    # use np.searchsorted here for performance.
+    # find the indexes into vecSpikeTimes that vecEventTimes occur at
+    Sidx = np.searchsorted(vecSpikeTimes, vecEventTimes)
+    # do same for event 'ends'
+    Eidx = np.searchsorted(vecSpikeTimes, vecEventTimes+dblUseMaxDur)
+    # use the start and stop indexs to pre-index right size array.
+    # add two extra slots for the beginning [0] and end [dblUseMaxDur]
+    vecSpikesInTrial = np.empty(np.sum(Eidx-Sidx)+2)
+    vecSpikesInTrial[0] = 0
+    vecSpikesInTrial[-1] = dblUseMaxDur
+    # loop over trials to fill spike time vector
+    cnt = 1
+    for i,dblStartT in enumerate(vecEventTimes):
+        vecSpikesInTrial[cnt:cnt+Eidx[i]-Sidx[i]]=\
+            vecSpikeTimes[Sidx[i]:Eidx[i]]-dblStartT
+        cnt+=Eidx[i]-Sidx[i]
+    return np.sort(vecSpikesInTrial)
+# %%
+
+
+def getSpikeT_old(vecSpikeTimes, vecEventTimes, dblUseMaxDur):
     # %% turn spike times relative to recording start into times relative to trial start
 
     # pre-allocate
