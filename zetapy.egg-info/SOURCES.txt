@@ -13,3 +13,8 @@ zetapy.egg-info/SOURCES.txt
 zetapy.egg-info/dependency_links.txt
 zetapy.egg-info/requires.txt
 zetapy.egg-info/top_level.txt
+zetapy/legacy/__init__.py
+zetapy/legacy/dependencies.py
+zetapy/legacy/example.py
+zetapy/legacy/main.py
+zetapy/legacy/msd.py

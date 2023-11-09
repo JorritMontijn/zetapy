@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zetapy
-Version: 3.0.0
+Version: 3.0.3
 Summary: Implementations of the ZETA family of statistical tests.
 Home-page: https://github.com/JorritMontijn/zetapy
 Author: Jorrit Montijn, Guido Meijer & Alexander Heimel
