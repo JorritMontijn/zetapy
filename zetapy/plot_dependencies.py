@@ -224,10 +224,10 @@ def plotzeta2(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, dZ
     # reduce spikes
     if vecSpikeTimes1.size > intPlotSpikeNum or vecSpikeTimes2.size > intPlotSpikeNum:
         dblReduceSpikesBy = min(vecSpikeTimes1.size / intPlotSpikeNum, vecSpikeTimes2.size / intPlotSpikeNum)
-        intPlotSpikeNum1 = np.round(dblReduceSpikesBy * vecSpikeTimes1.size)
-        intPlotSpikeNum2 = np.round(dblReduceSpikesBy * vecSpikeTimes2.size)
-        vecSpikeT1_reduced = vecSpikeTimes1[np.round(np.linspace(0, vecSpikeTimes1.size-1, intPlotSpikeNum1))]
-        vecSpikeT2_reduced = vecSpikeTimes1[np.round(np.linspace(0, vecSpikeTimes2.size-1, intPlotSpikeNum2))]
+        intPlotSpikeNum1 = np.round(dblReduceSpikesBy * vecSpikeTimes1.size).astype(int)
+        intPlotSpikeNum2 = np.round(dblReduceSpikesBy * vecSpikeTimes2.size).astype(int)
+        vecSpikeT1_reduced = vecSpikeTimes1[np.round(np.linspace(0, vecSpikeTimes1.size-1, intPlotSpikeNum1)).astype(int)]
+        vecSpikeT2_reduced = vecSpikeTimes1[np.round(np.linspace(0, vecSpikeTimes2.size-1, intPlotSpikeNum2)).astype(int)]
     else:
         vecSpikeT1_reduced = vecSpikeTimes1
         vecSpikeT2_reduced = vecSpikeTimes2
@@ -375,7 +375,7 @@ def plotzeta(vecSpikeTimes, arrEventTimes, dZETA, dRate,
 
     # top left: raster
     if vecSpikeTimes.size > intPlotSpikeNum:
-        vecSpikeT_reduced = vecSpikeTimes[np.round(np.linspace(0, vecSpikeTimes.size-1, intPlotSpikeNum))]
+        vecSpikeT_reduced = vecSpikeTimes[np.round(np.linspace(0, vecSpikeTimes.size-1, intPlotSpikeNum)).astype(int)]
     else:
         vecSpikeT_reduced = vecSpikeTimes
 
