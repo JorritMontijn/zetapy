@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='zetapy',
-    version='3.0.4',
+    version='3.0.5',
     description='Implementations of the ZETA family of statistical tests.',
     url='https://github.com/JorritMontijn/zetapy',
     author='Jorrit Montijn, Guido Meijer & Alexander Heimel',
