@@ -4,7 +4,8 @@ import collections
 import numpy as np
 from math import pi, sqrt, exp
 from scipy import stats, interpolate, signal
-from scipy.signal import convolve, gaussian
+from scipy.signal import convolve
+from scipy.signal.windows import gaussian
 
 
 def getGumbel(dblE,dblV,dblX):
