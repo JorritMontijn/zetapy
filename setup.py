@@ -2,14 +2,14 @@ from setuptools import setup
 
 setup(
     name='zetapy',
-    version='3.0.6',
+    version='3.0.7',
     description='Implementations of the ZETA family of statistical tests.',
     url='https://github.com/JorritMontijn/zetapy',
     author='Jorrit Montijn, Guido Meijer & Alexander Heimel',
     author_email='j.s.montijn@gmail.com',
     license='GNU General Public License',
     packages=['zetapy', 'zetapy.legacy'],
-    install_requires=['scipy', 'numpy', 'matplotlib'],
+    install_requires=['scipy >= 1.1.0', 'numpy', 'matplotlib'],
 
     classifiers=[
         'Programming Language :: Python :: 3',
