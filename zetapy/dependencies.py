@@ -542,8 +542,8 @@ def getSpikeT(vecSpikeTimes, vecEventTimes, dblUseMaxDur):
         # build trial assignment
         vecTempSpikes = vecSpikeTimes[np.logical_and(vecSpikeTimes < dblStopT, vecSpikeTimes > dblStartT)] - dblStartT
         intTempSpikeNr = vecTempSpikes.size
-        vecAssignIdx = [i for i in range(intIdx, intIdx+intTempSpikeNr)]
-        if len(vecAssignIdx) > 0 and vecAssignIdx[-1] >= vecSpikesInTrial.size:
+        vecAssignIdx = np.arange(intIdx, intIdx+intTempSpikeNr)
+        if vecAssignIdx.shape[0] > 0 and vecAssignIdx[-1] >= vecSpikesInTrial.size:
             vecSpikesInTrial = np.resize(vecSpikesInTrial, vecSpikesInTrial.size*2)
         vecSpikesInTrial[vecAssignIdx] = vecTempSpikes
         intIdx = intIdx + intTempSpikeNr
@@ -552,7 +552,8 @@ def getSpikeT(vecSpikeTimes, vecEventTimes, dblUseMaxDur):
     vecSpikesInTrial = vecSpikesInTrial[:intIdx]
 
     # sort spikes in window and add start/end entries
-    vecSpikesInTrial = np.concatenate((np.zeros(1), np.sort(vecSpikesInTrial, axis=0), np.array([dblUseMaxDur])))
+    vecSpikesInTrial = np.concatenate((np.zeros(1), np.sort(vecSpikesInTrial, axis=0, kind='quicksort'),
+                                       np.array([dblUseMaxDur])))
 
     return vecSpikesInTrial
 

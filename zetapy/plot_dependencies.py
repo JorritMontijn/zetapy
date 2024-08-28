@@ -10,7 +10,8 @@ import logging
 import math
 import matplotlib.pyplot as plt
 import tkinter as tk
-from scipy.signal import convolve, gaussian
+from scipy.signal import convolve
+from scipy.signal.windows import gaussian
 from zetapy.ts_dependencies import getInterpolatedTimeSeries
 
 # %% plottszeta2
