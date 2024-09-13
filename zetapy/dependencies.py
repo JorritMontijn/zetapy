@@ -28,6 +28,8 @@ def calcZetaTwo(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, 
     dblZETA = 0.0
     intZETAIdx = None
 
+    boolFastInterp = False # Not implemented yet in python
+
     dZETA = dict()
     dZETA['vecSpikeT'] = vecSpikeT
     dZETA['vecRealDiff'] = vecRealDiff
@@ -110,8 +112,12 @@ def calcZetaTwo(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, 
         # if cond1 has 10 trials, and cond2 has 100, then:
         # for shuffle of cond1: take 10 trials from set of 110
         # for shuffle of cond2: take 100 trials from set of 110
-        vecUseRand1 = np.random.randint(intTotTrials, size=intTrials1)
-        vecUseRand2 = np.random.randint(intTotTrials, size=intTrials2)
+        # vecUseRand1 = np.random.randint(intTotTrials, size=intTrials1)
+        # vecUseRand2 = np.random.randint(intTotTrials, size=intTrials2)
+
+        vecUseRand1 = my_randint(intTotTrials, size=intTrials1)
+        vecUseRand2 = my_randint(intTotTrials, size=intTrials2)
+
 
         cellTimePerSpike1_Rand = [cellAggregateTrials[i] for i in vecUseRand1]
         cellTimePerSpike2_Rand = [cellAggregateTrials[j] for j in vecUseRand2]
@@ -121,7 +127,7 @@ def calcZetaTwo(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, 
         else:
             # get difference
             vecRandT, vecRandDiff, vecRandFrac1, vecThisSpikeTimes1, vecRandFrac2, vecThisSpikeTimes2 = \
-                getTempOffsetTwo(cellTimePerSpike1_Rand, cellTimePerSpike2_Rand, dblUseMaxDur)
+                getTempOffsetTwo(cellTimePerSpike1_Rand, cellTimePerSpike2_Rand, dblUseMaxDur, boolFastInterp, vecSpikeT)
 
             # assign data
             cellRandTime[intResampling] = vecRandT
@@ -257,10 +263,12 @@ def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDi
     boolTest = False
     if boolTest:
         from scipy.io import loadmat
-        print('Loading deterministic jitter data for comparison with matlab')
-        logging.warning(
-            "calcZetaOne:debugMode: set boolTest to False to suppress this warning")
-        dLoad = loadmat('matJitterPerTrial.mat')
+        import tempfile
+        import os
+        strJitterFilename = 'matJitterPerTrial.mat';
+        print('Loading deterministic jitter data for comparison with matlab from ' + strJitterFilename)
+        logging.warning("calcZetaOne:debugMode: set boolTest to False to suppress this warning")
+        dLoad = loadmat(strJitterFilename)
         matJitterPerTrial = dLoad['matJitterPerTrial']
 
         # reset rng
@@ -299,7 +307,7 @@ def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDi
 # %%
 
 
-def getTempOffsetTwo(cellTimePerSpike1, cellTimePerSpike2, dblUseMaxDur):
+def getTempOffsetTwo(cellTimePerSpike1, cellTimePerSpike2, dblUseMaxDur, boolFastInterp=False, vecSpikeT=None):
     '''
     vecSpikeT, vecThisDiff, vecThisFrac1, vecThisSpikeTimes1, vecThisFrac2, vecThisSpikeTimes2 = 
         getTempOffsetTwo(cellTimePerSpike1,cellTimePerSpike2,dblUseMaxDur)
@@ -313,8 +321,9 @@ def getTempOffsetTwo(cellTimePerSpike1, cellTimePerSpike2, dblUseMaxDur):
     vecThisSpikeTimes2 = getUniqueSpikes(np.sort(vecSpikes2))
 
     # ref time
-    vecSpikeT = np.sort(np.concatenate((np.zeros(1), vecThisSpikeTimes1,
-                        vecThisSpikeTimes2, np.array([dblUseMaxDur])), axis=0))
+    if vecSpikeT is None:
+        vecSpikeT = np.sort(np.concatenate((np.zeros(1), vecThisSpikeTimes1,
+                            vecThisSpikeTimes2, np.array([dblUseMaxDur])), axis=0))
 
     # cond1 goes to S1_n/T1_n; cond2 goes to S2_n/T2_n
     intSp1 = len(vecThisSpikeTimes1)
@@ -509,19 +518,45 @@ def getTempOffsetOne(vecSpikeTimes, vecEventTimes, dblUseMaxDur):
 
 # %%
 
+# Old python version
+# def getUniqueSpikes(vecSpikesInTrial):
+#     # introduce random minimum jitter to identical spikes
+#     dblMinOffset = np.finfo(vecSpikesInTrial.dtype.type).eps
+#     vecOffsets = np.arange(-dblMinOffset*10, dblMinOffset*10, dblMinOffset)
+#     vecUniqueSpikes, vecIdx = np.unique(vecSpikesInTrial, return_index=True)
+#     while vecUniqueSpikes.shape[0] != vecSpikesInTrial.shape[0]:
+#         indDuplicates = ~np.isin(np.arange(vecSpikesInTrial.shape[0]), vecIdx)
+#         vecRandomOffsets = np.random.choice(vecOffsets, np.sum(indDuplicates))
+#         vecSpikesInTrial[indDuplicates] += vecRandomOffsets
+#         vecUniqueSpikes, vecIdx = np.unique(vecSpikesInTrial, return_index=True)
 
-def getUniqueSpikes(vecSpikesInTrial):
-    # introduce random minimum jitter to identical spikes
-    dblMinOffset = np.finfo(vecSpikesInTrial.dtype.type).eps
-    vecOffsets = np.arange(-dblMinOffset*10, dblMinOffset*10, dblMinOffset)
-    vecUniqueSpikes, vecIdx = np.unique(vecSpikesInTrial, return_index=True)
-    while vecUniqueSpikes.shape[0] != vecSpikesInTrial.shape[0]:
-        indDuplicates = ~np.isin(np.arange(vecSpikesInTrial.shape[0]), vecIdx)
-        vecRandomOffsets = np.random.choice(vecOffsets, np.sum(indDuplicates))
-        vecSpikesInTrial[indDuplicates] += vecRandomOffsets
-        vecUniqueSpikes, vecIdx = np.unique(vecSpikesInTrial, return_index=True)
+#     return vecSpikesInTrial
 
-    return vecSpikesInTrial
+# New version based on MATLAB implementation 2023-09-13
+def getUniqueSpikes(vecSpikeTimes):
+    # introduce minimum jitter to identical spikes
+    vecSpikeTimes = np.sort(vecSpikeTimes)
+    dblUniqueOffset = np.finfo(vecSpikeTimes.dtype.type).eps
+    indDuplicates = np.append(False,np.diff(vecSpikeTimes)<dblUniqueOffset)
+    while np.any(indDuplicates):
+        vecNotUnique = vecSpikeTimes[indDuplicates]
+        vecJitter = np.concatenate( (1+9*np.random.rand(len(vecNotUnique)),-1-9*np.random.rand(len(vecNotUnique))),axis=0)
+        vecJitter = dblUniqueOffset*vecJitter[my_randperm(len(vecJitter),len(vecNotUnique))]
+        vecSpikeTimes[indDuplicates] = vecSpikeTimes[indDuplicates] + vecJitter
+        vecSpikeTimes = np.sort(vecSpikeTimes)
+        indDuplicates = np.append(False,np.diff(vecSpikeTimes)<dblUniqueOffset)
+    return vecSpikeTimes
+
+def my_randperm(n, k):
+    # randperm introduced to make results reproducable between python and
+    #  MATLAB implementation
+    ind = np.argsort(np.random.rand(n))
+    return ind[:k]
+ 
+
+
+
+
 
 # %%
 
@@ -688,3 +723,16 @@ def genFlatten(l):
             yield from flatten(el)
         else:
             yield el
+
+def my_randint(low, high=None, size=None):
+    # random.randint(low, high=None, size=None, dtype=int)
+    #
+    # implementation of randint that returns same values as MATLAB's randi (tested for MATLAB R2023b)
+
+    if high is None:
+        high = low
+        low = 0
+    
+    x = np.floor((np.random.random_sample(size)*(high-low)) + low).astype(np.int64)
+
+    return x

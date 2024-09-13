@@ -152,8 +152,8 @@ def calcTsZetaTwo(vecTimestamps1, vecData1, arrEventTimes1, vecTimestamps2, vecD
         # if cond1 has 10 trials, and cond2 has 100, then:
         # for shuffle of cond1: take 10 trials from set of 110
         # for shuffle of cond2: take 100 trials from set of 110
-        vecUseRand1 = np.random.randint(intTotTrials, size=intTrials1)
-        vecUseRand2 = np.random.randint(intTotTrials, size=intTrials2)
+        vecUseRand1 = my_randint(intTotTrials, size=intTrials1)
+        vecUseRand2 = my_randint(intTotTrials, size=intTrials2)
 
         matTrace1_Rand = matAggregateTrials[vecUseRand1, :]
         matTrace2_Rand = matAggregateTrials[vecUseRand2, :]
@@ -261,25 +261,49 @@ def calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResamp
     # define event starts
     vecEventT = arrEventTimes[:, 0]
 
-    dblMinPreEventT = np.min(vecEventT)-dblUseMaxDur*5*dblJitterSize
-    dblStartT = max([vecTimestamps[0], dblMinPreEventT])
-    dblStopT = max(vecEventT)+dblUseMaxDur*5*dblJitterSize
+    # New matlab code
+    # dblPreUse = -dblUseMaxDur*dblJitterSize;
+    # dblPostUse = dblUseMaxDur*(dblJitterSize+1);
+    #
+    # dblStartT = min(vecEventStarts) + dblPreUse*2;
+    # dblStopT = max(vecEventStarts) + dblPostUse*2;
+    # indRemoveEntries = (vecTraceT < dblStartT) | (vecTraceT > dblStopT);
+    # vecTraceT(indRemoveEntries) = [];
+    # vecTraceAct(indRemoveEntries) = [];
+
+    # Old python code
+    #dblMinPreEventT = np.min(vecEventT)-dblUseMaxDur*5*dblJitterSize
+    #dblStartT = max([vecTimestamps[0], dblMinPreEventT])
+    #dblStopT = max(vecEventT)+dblUseMaxDur*5*dblJitterSize
+    
+    # New python code to match matlab 2024-09-11
+    dblPreUse = -dblUseMaxDur*dblJitterSize
+    dblPostUse = dblUseMaxDur*(dblJitterSize+1)
+    dblStartT = np.min(vecEventT) + dblPreUse*2
+    dblStopT = np.max(vecEventT) + dblPostUse*2
+
     indKeepEntries = np.logical_and(vecTimestamps >= dblStartT, vecTimestamps <= dblStopT)
     vecTimestamps = vecTimestamps[indKeepEntries]
     vecData = vecData[indKeepEntries]
 
-    if vecTimestamps.size < 3:
+    # New code to follow matlab 2024-09-11
+    dblMin = min(vecData);
+    dblMax = max(vecData);
+    dblRange = (dblMax-dblMin);
+    if dblRange == 0:
+        dblRange = 1
         logging.warning(
-            "calcTsZetaOne:vecTimestamps: too few entries around events to calculate zeta")
-        return dZETA
+            "calcTsZetaOne:ZeroVar: Input data has zero variance")
+    vecData = (vecData-dblMin)/dblRange
 
+    #if vecTimestamps.size < 3:
+    #    logging.warning(
+    #        "calcTsZetaOne:vecTimestamps: too few entries around events to calculate zeta")
+    #    return dZETA
+    
     # %% build pseudo data, stitching stimulus periods
-    vecPseudoT, vecPseudoV, vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
-    vecPseudoV = vecPseudoV - np.min(vecPseudoV)
-    if vecTimestamps.size < 3:
-        logging.warning(
-            "calcTsZetaOne:vecPseudoT: too few entries around events to calculate zeta")
-        return dZETA
+    #vecPseudoT, vecPseudoV, vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
+    #vecPseudoV = vecPseudoV - np.min(vecPseudoV)
 
     if boolStitch:
         vecPseudoT, vecPseudoV, vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
@@ -288,10 +312,18 @@ def calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResamp
         vecPseudoV = vecData
         vecPseudoEventT = vecEventT
 
+    vecPseudoV = vecPseudoV - np.min(vecPseudoV)
+
+    if vecTimestamps.size < 3:
+        logging.warning(
+            "calcTsZetaOne:vecPseudoT: too few entries around events to calculate zeta")
+        return dZETA
+
     # %% run normal
     # get data
+    dblSuperResFactorOrRefT = 100;
     vecRealDeviation, vecRealFrac, vecRealFracLinear, vecRealTime = getTimeseriesOffsetOne(
-        vecPseudoT, vecPseudoV, vecPseudoEventT, dblUseMaxDur)
+        vecPseudoT, vecPseudoV, vecPseudoEventT, dblUseMaxDur,dblSuperResFactorOrRefT)
 
     if vecRealDeviation.size < 3:
         logging.warning(
@@ -406,7 +438,7 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
     vecPseudoEventT.fill(np.nan)
     dblPseudoEventT = 0.0
     dblStartNextAtT = 0
-    intLastUsedSample = 0
+    intLastUsedSample = -1
     intFirstSample = None
 
     # %% run
@@ -415,45 +447,66 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
         # intTrial = intTrial + 1
         # dblEventT = vecEventTimes[intTrial]
         # get eligible samples
-        intStartSample = findfirst(vecTimestamps >= dblEventT)
+        
+        # intStartSample = findfirst(vecTimestamps >= dblEventT)
+        # matching matlab 2024-09-11
+        intStartSample = findfirst(vecTimestamps > dblEventT) - 1
         intEndSample = findfirst(vecTimestamps > (dblEventT+dblWindowDur))
 
-        if intStartSample is not None and intEndSample is not None and intStartSample > intEndSample:
-            intEndSample = None
-            intStartSample = None
-
         if intEndSample is None:
-            intEndSample = len(vecTimestamps)
+            intEndSample = intStartSample
+        vecEligibleSamples = np.arange(intStartSample, intEndSample+1)
+        indUseSamples = np.logical_and(vecEligibleSamples >= 0, vecEligibleSamples < intSamples)
+        vecUseSamples = vecEligibleSamples[indUseSamples]
 
-        if intStartSample is None or intEndSample is None:
-            vecUseSamples = None
-        else:
-            vecEligibleSamples = np.arange(intStartSample, intEndSample)
-            indUseSamples = np.logical_and(vecEligibleSamples >= 0, vecEligibleSamples < intSamples)
-            vecUseSamples = vecEligibleSamples[indUseSamples]
+		# check if beginning or end
+        if intTrial==0:
+            vecUseSamples = np.arange(0,vecUseSamples[-1]+1)
+        if intTrial==(intTrials-1):
+            vecUseSamples = np.arange(vecUseSamples[0], intSamples)
 
-        # check if beginning or end
-        if vecUseSamples.size > 0:
-            if intTrial == 0:
-                vecUseSamples = np.arange(0, vecUseSamples[-1]+1)
-            elif intTrial == (intTrials-1):
-                vecUseSamples = np.arange(vecUseSamples[0], intSamples)
+        vecUseT = vecTimestamps[vecUseSamples]
+        indOverlap = (vecUseSamples <= intLastUsedSample)
+        if np.any(indOverlap):
+            vecUseSamples = vecUseSamples[np.logical_not(indOverlap)]
+            vecUseT = vecTimestamps[vecUseSamples]
+            
+        #if intStartSample is not None and intEndSample is not None and intStartSample > intEndSample:
+        #    intEndSample = None
+        #    intStartSample = None
+        #
+        #if intEndSample is None:
+        #    intEndSample = len(vecTimestamps)
+        #
+        # if intStartSample is None or intEndSample is None:
+        #     vecUseSamples = None
+        # else:
+        #     vecEligibleSamples = np.arange(intStartSample, intEndSample+1)
+        #     indUseSamples = np.logical_and(vecEligibleSamples >= 0, vecEligibleSamples < intSamples)
+        #     vecUseSamples = vecEligibleSamples[indUseSamples]
+        #
+        # # check if beginning or end
+        # if vecUseSamples.size > 0:
+        #     if intTrial == 0:
+        #         vecUseSamples = np.arange(0, vecUseSamples[-1]+1)
+        #     elif intTrial == (intTrials-1):
+        #         vecUseSamples = np.arange(vecUseSamples[0], intSamples)
 
         # add entries
-        vecUseT = vecTimestamps[vecUseSamples]
-        indOverlap = vecUseSamples <= intLastUsedSample
+        #vecUseT = vecTimestamps[vecUseSamples]
+        #indOverlap = vecUseSamples <= intLastUsedSample
 
-        # get event t
-        if intTrial == 0:
-            dblPseudoEventT = 0.0
-        else:
-            if intTrial > 0 and dblWindowDur > (dblEventT - vecEventTimes[intTrial-1]):
-                # remove spikes from overlapping epochs
-                vecUseSamples = vecUseSamples[~indOverlap]
-                vecUseT = vecTimestamps[vecUseSamples]
-                dblPseudoEventT = dblPseudoEventT + dblEventT - vecEventTimes[intTrial-1]
-            else:
-                dblPseudoEventT = dblPseudoEventT + dblWindowDur
+        # # get event t
+        # if intTrial == 0:
+        #     dblPseudoEventT = 0.0
+        # else:
+        #     if intTrial > 0 and dblWindowDur > (dblEventT - vecEventTimes[intTrial-1]):
+        #         # remove spikes from overlapping epochs
+        #         vecUseSamples = vecUseSamples[~indOverlap]
+        #         vecUseT = vecTimestamps[vecUseSamples]
+        #         dblPseudoEventT = dblPseudoEventT + dblEventT - vecEventTimes[intTrial-1]
+        #     else:
+        #         dblPseudoEventT = dblPseudoEventT + dblWindowDur
 
         # make local pseudo event time
         if vecUseSamples.size == 0:
@@ -473,15 +526,22 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
 
             dblStartNextAtT = vecLocalPseudoT[-1] + dblStepEnd
 
-        if intFirstSample is None and vecUseSamples.size > 0:
+        if intTrial==0:
             intFirstSample = vecUseSamples[0]
-            dblPseudoT0 = dblPseudoEventT
+            dblPseudoT0 = vecLocalPseudoT[0]
 
-        if vecLocalPseudoT is not None:
-            # assign data for this trial
-            cellPseudoTime.append(vecLocalPseudoT)
-            cellPseudoData.append(vecLocalPseudoV)
-            vecPseudoEventT[intTrial] = dblPseudoEventT
+        # if intFirstSample is None and vecUseSamples.size > 0:
+        #     intFirstSample = vecUseSamples[0]
+        #     dblPseudoT0 = dblPseudoEventT
+        # if vecLocalPseudoT is not None:
+        #     # assign data for this trial
+        #     cellPseudoTime.append(vecLocalPseudoT)
+        #     cellPseudoData.append(vecLocalPseudoV)
+        #     vecPseudoEventT[intTrial] = dblPseudoEventT
+
+        cellPseudoTime.append(vecLocalPseudoT)
+        cellPseudoData.append(vecLocalPseudoV)
+        vecPseudoEventT[intTrial] = dblPseudoEventT
 
     # %% add beginning
     dblT1 = vecTimestamps[intFirstSample]
@@ -516,7 +576,7 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
 
 
 # %% getTimeseriesOffsetOne
-def getTimeseriesOffsetOne(vecTimestamps, vecData, vecEventStartT, dblUseMaxDur):
+def getTimeseriesOffsetOne(vecTimestamps, vecData, vecEventStartT, dblUseMaxDur,dblSuperResFactor=100):
     '''
     vecDeviation, vecThisFrac, vecThisFracLinear, vecTime = getTimeseriesOffsetOne(vecT, vecV, vecEventT, dblUseMaxDur)
 
@@ -538,7 +598,7 @@ def getTimeseriesOffsetOne(vecTimestamps, vecData, vecEventStartT, dblUseMaxDur)
     '''
 
     # %% prepare
-    vecTime = getTsRefT(vecTimestamps, vecEventStartT, dblUseMaxDur)
+    vecTime = getTsRefT(vecTimestamps, vecEventStartT, dblUseMaxDur, dblSuperResFactor)
 
     # build interpolated data
     vecTime, matTracePerTrial = getInterpolatedTimeSeries(vecTimestamps, vecData, vecEventStartT, vecTime)
@@ -562,7 +622,7 @@ def getTimeseriesOffsetOne(vecTimestamps, vecData, vecEventStartT, dblUseMaxDur)
 # %% getTsRefT
 
 
-def getTsRefT(vecTimestamps, vecEventStartT, dblUseMaxDur):
+def getTsRefT(vecTimestamps, vecEventStartT, dblUseMaxDur, dblSuperResFactor=1):
     # pre-allocate
     vecEventStartT = np.sort(vecEventStartT)
     intTimeNum = len(vecTimestamps)-1
@@ -594,10 +654,16 @@ def getTsRefT(vecTimestamps, vecEventStartT, dblUseMaxDur):
         cellRefT.append(vecTimestamps[vecSelectSamples]-dblStartT)
 
     # %% set tol
-    dblSampInterval = np.median(np.diff(vecTimestamps, axis=0))
-    dblTol = dblSampInterval/100
-    vecVals = np.sort(np.vstack(np.concatenate(cellRefT)))
-    vecTime = np.hstack(uniquetol(vecVals, dblTol))
+    if dblSuperResFactor==1:
+        intUseEntry = np.argmax([len(item) for item in cellRefT])
+        vecRefT = cellRefT[intUseEntry].flatten()
+        dblMedDiff = np.median(np.diff(vecRefT))
+        vecTime = np.round(10*(vecRefT/dblMedDiff))/(10/dblMedDiff)
+    else:
+        dblSampInterval = np.median(np.diff(vecTimestamps, axis=0))
+        dblTol = dblSampInterval/100
+        vecVals = np.sort(np.vstack(np.concatenate(cellRefT)))
+        vecTime = np.hstack(uniquetol(vecVals, dblTol))
 
     # return
     return vecTime
@@ -674,3 +740,16 @@ def uniquetol(array_in, dblTol):
 
     '''
     return (np.unique(np.floor(array_in/dblTol).astype(int)))*dblTol
+
+def my_randint(low, high=None, size=None):
+    # random.randint(low, high=None, size=None, dtype=int)
+    #
+    # implementation of randint that returns same values as MATLAB's randi (tested for MATLAB R2023b)
+
+    if high is None:
+        high = low
+        low = 0
+    
+    x = np.floor((np.random.random_sample(size)*(high-low)) + low).astype(np.int64)
+
+    return x
