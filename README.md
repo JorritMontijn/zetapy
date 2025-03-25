@@ -25,6 +25,6 @@ Neurophysiological studies depend on a reliable quantification of whether and wh
 
 Finally, ZETA’s timescale-, parameter- and binning-free nature allowed us to implement a ZETA-derived algorithm to calculate peak onset and offset latencies in neuronal spike trains with theoretically unlimited temporal resolution.
 
-Please send any questions or comments to j.montijn at nin.knaw.nl.
+Please send any questions or comments to Jorrit Montijn, Guido Meijer or Alexander Heimel.
 
 ![zeta_image](https://user-images.githubusercontent.com/15422591/135059690-2d7f216a-726e-4080-a4ec-2b3fae78e10c.png)
