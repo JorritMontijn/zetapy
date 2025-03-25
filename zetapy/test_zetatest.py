@@ -69,7 +69,8 @@ class TestZetaTest(unittest.TestCase):
                              dLoad['vecSpikeTimes2'],dLoad['matEventTimes'][0:intTrials,:],
                              dblUseMaxDur=dLoad['dblUseMaxDur'][0,0],
                              boolPlot=False)[0]  # use [0] to return only the p-value
-        self.assertTrue(abs(dblZetaP - 8.685750946035853e-06)<1E-6)
+        self.assertTrue(abs(dblZetaP - 0.00000356925555644594)<1E-6)
+
 
     def test_zetatest2_stimuli(self):
         print('\nzetatest2_stimuli, expected to take about 2 s',end='')
@@ -82,8 +83,8 @@ class TestZetaTest(unittest.TestCase):
                              dLoad['vecSpikeTimes1'],dLoad['matEventTimes'][vecTrials2.flatten(),:],
                              dblUseMaxDur=dLoad['dblUseMaxDur'][0,0],
                              boolPlot=False)[0]  # use [0] to return only the p-value
-        self.assertTrue(abs(dblZetaP - 0.010218584062786)<1E-6)
-
+        self.assertTrue(abs(dblZetaP - 0.00908076827309078904)<1E-6)
+        
     def test_zetatstest2_neurons(self):
         print('\nzetatstest2_neurons, expected to take about 2 s',end='')
         strDataFile = os.path.join(os.path.dirname(__file__), 'testZetaTestData.mat')
@@ -97,7 +98,7 @@ class TestZetaTest(unittest.TestCase):
         self.assertTrue(abs(dblZetaP - 7.201222648300920e-06)<1E-6)
 
     def test_zetatstest2_stimuli(self):
-        print('\nzetatstest2_stimuli, expected to take about X s',end='')
+        print('\nzetatstest2_stimuli, expected to take about 2 s',end='')
         strDataFile = os.path.join(os.path.dirname(__file__), 'testZetaTestData.mat')
         dLoad = scipy.io.loadmat(strDataFile)
         vecTrials1 = dLoad['vecStimulusOrientation'][0:480]==0

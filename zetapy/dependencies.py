@@ -537,14 +537,16 @@ def getUniqueSpikes(vecSpikeTimes):
     # introduce minimum jitter to identical spikes
     vecSpikeTimes = np.sort(vecSpikeTimes)
     dblUniqueOffset = np.finfo(vecSpikeTimes.dtype.type).eps
+    dblShift = dblUniqueOffset
     indDuplicates = np.append(False,np.diff(vecSpikeTimes)<dblUniqueOffset)
     while np.any(indDuplicates):
         vecNotUnique = vecSpikeTimes[indDuplicates]
         vecJitter = np.concatenate( (1+9*np.random.rand(len(vecNotUnique)),-1-9*np.random.rand(len(vecNotUnique))),axis=0)
-        vecJitter = dblUniqueOffset*vecJitter[my_randperm(len(vecJitter),len(vecNotUnique))]
+        vecJitter = dblShift*vecJitter[my_randperm(len(vecJitter),len(vecNotUnique))]
         vecSpikeTimes[indDuplicates] = vecSpikeTimes[indDuplicates] + vecJitter
         vecSpikeTimes = np.sort(vecSpikeTimes)
         indDuplicates = np.append(False,np.diff(vecSpikeTimes)<dblUniqueOffset)
+        dblShift = dblShift * 2; # to avoid endless loop if vecJitter is too small
     return vecSpikeTimes
 
 def my_randperm(n, k):
