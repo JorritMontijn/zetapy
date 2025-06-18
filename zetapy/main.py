@@ -998,7 +998,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
     eLife 10, e71969.
 
     Syntax:
-    dblZetaP,dZETA,dRate,vecLatencies = zetatest(vecSpikeTimes,arrEventTimes,
+    dblZetaP,dZETA,dRate = zetatest(vecSpikeTimes,arrEventTimes,
                                                    dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
                                                    tplRestrictRange=(-np.inf, np.inf), boolStitch=True,
                                                    boolDirectQuantile=False, boolReturnRate=False):
