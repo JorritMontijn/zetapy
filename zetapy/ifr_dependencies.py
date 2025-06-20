@@ -13,8 +13,8 @@ from zetapy.dependencies import (flatten, findfirst)
 from scipy import stats, interpolate, signal
 
 
-def getMultiScaleDeriv(vecT, vecV,
-                       dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5, dblMeanRate=1.0, dblUseMaxDur=None, boolParallel=False):
+def getMultiScaleDeriv(vecT, vecV, dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5, dblMeanRate=1.0,
+                       dblUseMaxDur=None):
     """"Returns multi-scale derivative of the deviation vector; i.e., the ZETA-derived instantaneous firing rate
        [vecRate,dMSD] = getMultiScaleDeriv(vecT, vecV,
                               dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5, dblMeanRate=1.0, dblUseMaxDur=None, boolParallel=False)
@@ -57,9 +57,6 @@ def getMultiScaleDeriv(vecT, vecV,
     if dblMinScale is None:
         dblMinScale = round(np.log(1/1000) / np.log(dblBase))
 
-    # parallel processing: to do
-    boolUseParallel = False
-
     # flatten and reorder vecT
     vecT = vecT.flatten()
     vecV = vecV.flatten()
@@ -78,13 +75,9 @@ def getMultiScaleDeriv(vecT, vecV,
     intN = len(vecT)
     matMSD = np.zeros((intN, intScaleNum))
 
-    if boolUseParallel and False:
-        # not implemented yet
-        pass
-    else:
-        for intScaleIdx, dblScale in enumerate(vecScale):
-            # run through all points
-            matMSD[:, intScaleIdx] = calcSingleMSD(dblScale, vecT, vecV)
+    for intScaleIdx, dblScale in enumerate(vecScale):
+        # run through all points
+        matMSD[:, intScaleIdx] = calcSingleMSD(dblScale, vecT, vecV)
 
     # %% smoothing
     if dblSmoothSd > 0:

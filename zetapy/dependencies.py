@@ -167,10 +167,11 @@ def resamplingWorker(intResampling, vecStartOnly, vecPseudoSpikeTimes, dblUseMax
     maxRandD = np.max(np.abs(vecRandDiff))
     return vecThisSpikeTimes, vecRandDiff, maxRandD
 
-def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch, boolParallel):
+def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile,
+                dblJitterSize, boolStitch, boolParallel):
     """
     Calculates neuronal responsiveness index zeta
-    dZETA = calcZetaOne(vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch,boolParallel, intUseJitterDistro)
+    dZETA = calcZetaOne(vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch, boolParallel)
     dZETA has entries:
         vecSpikeT, vecRealDeviation, vecRealFrac, vecRealFracLinear, cellRandTime, cellRandDeviation, dblZetaP, dblZETA, intZETAIdx
     """
@@ -284,7 +285,11 @@ def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDi
         np.random.seed(1)
 
     # %% run resamplings (parallely)
-    with mp.Pool(mp.cpu_count()//2) as pool:
+    if boolParallel:
+        intCores = mp.cpu_count() // 2  # use half the cpu's
+    else:
+        intCores = 1
+    with mp.Pool(intCores) as pool:
         input_list = [(intResampling,
                        vecStartOnly,
                        vecPseudoSpikeTimes,
