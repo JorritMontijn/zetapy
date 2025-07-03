@@ -434,8 +434,9 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
     dblMedianDur = np.median(np.diff(vecTimestamps, axis=0))
     cellPseudoTime = []
     cellPseudoData = []
-    vecPseudoEventT = np.empty((intTrials, 1))
-    vecPseudoEventT.fill(np.nan)
+    #vecPseudoEventT = np.empty((intTrials, 1))
+    #vecPseudoEventT.fill(np.nan)
+    vecPseudoEventT = []
     dblPseudoEventT = 0.0
     dblStartNextAtT = 0
     intLastUsedSample = -1
@@ -533,15 +534,13 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
         # if intFirstSample is None and vecUseSamples.size > 0:
         #     intFirstSample = vecUseSamples[0]
         #     dblPseudoT0 = dblPseudoEventT
-        # if vecLocalPseudoT is not None:
-        #     # assign data for this trial
-        #     cellPseudoTime.append(vecLocalPseudoT)
-        #     cellPseudoData.append(vecLocalPseudoV)
-        #     vecPseudoEventT[intTrial] = dblPseudoEventT
-
-        cellPseudoTime.append(vecLocalPseudoT)
-        cellPseudoData.append(vecLocalPseudoV)
-        vecPseudoEventT[intTrial] = dblPseudoEventT
+        if vecLocalPseudoT is not None:
+            # assign data for this trial
+            cellPseudoTime.append(vecLocalPseudoT)
+            cellPseudoData.append(vecLocalPseudoV)
+            #vecPseudoEventT[intTrial] = dblPseudoEventT
+            vecPseudoEventT.append(dblPseudoEventT)
+    vecPseudoEventT = np.array(vecPseudoEventT)
 
     # %% add beginning
     dblT1 = vecTimestamps[intFirstSample]

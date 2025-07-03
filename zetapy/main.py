@@ -882,6 +882,9 @@ def zetatstest(vecTime, vecValue, arrEventTimes, dblUseMaxDur=None, intResampNum
         boolStitch = True
     else:
         assert isinstance(boolStitch, bool), "boolStitch is not a boolean"
+    if boolStitch & (np.min(np.diff(arrEventTimes[:,0])) < dblUseMaxDur):
+        logging.warning('zetatstest: some events are too close together and will be excluded from the stitching procedure')        
+        
 
     # %% check data length
     dblDataT0 = np.min(vecTime)
