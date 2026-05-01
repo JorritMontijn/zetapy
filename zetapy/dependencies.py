@@ -4,6 +4,7 @@ import logging
 from scipy import stats
 from math import pi, sqrt, exp, factorial
 from collections.abc import Iterable
+import multiprocessing as mp
 
 # %% calcZetaTwo
 
@@ -158,10 +159,19 @@ def calcZetaTwo(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2, 
 # %%
 
 
-def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch, boolParallel):
+def resamplingWorker(intResampling, vecStartOnly, vecPseudoSpikeTimes, dblUseMaxDur, matJitterPerTrial):
+    vecStimUseOnTime = vecStartOnly[:, 0] + matJitterPerTrial[:, intResampling].T
+    vecRandDiff, vecThisSpikeFracs, vecThisFracLinear, vecThisSpikeTimes = getTempOffsetOne(
+        vecPseudoSpikeTimes, vecStimUseOnTime, dblUseMaxDur)
+    vecRandDiff = vecRandDiff - np.mean(vecRandDiff)
+    maxRandD = np.max(np.abs(vecRandDiff))
+    return vecThisSpikeTimes, vecRandDiff, maxRandD
+
+def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile,
+                dblJitterSize, boolStitch, boolParallel):
     """
     Calculates neuronal responsiveness index zeta
-    dZETA = calcZetaOne(vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch,boolParallel, intUseJitterDistro)
+    dZETA = calcZetaOne(vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch, boolParallel)
     dZETA has entries:
         vecSpikeT, vecRealDeviation, vecRealFrac, vecRealFracLinear, cellRandTime, cellRandDeviation, dblZetaP, dblZETA, intZETAIdx
     """
@@ -274,19 +284,25 @@ def calcZetaOne(vecSpikeTimes, arrEventTimes, dblUseMaxDur, intResampNum, boolDi
         # reset rng
         np.random.seed(1)
 
-    # %% run resamplings
-    for intResampling in range(intResampNum):
-        # get random subsample
-        vecStimUseOnTime = vecStartOnly[:, 0] + matJitterPerTrial[:, intResampling].T
-
-        # get temp offset
-        vecRandDiff, vecThisSpikeFracs, vecThisFracLinear, vecThisSpikeTimes = getTempOffsetOne(
-            vecPseudoSpikeTimes, vecStimUseOnTime, dblUseMaxDur)
-
-        # assign data
-        cellRandTime.append(vecThisSpikeTimes)
-        cellRandDeviation.append(vecRandDiff - np.mean(vecRandDiff))
-        vecMaxRandD[intResampling] = np.max(np.abs(cellRandDeviation[intResampling]))
+    # %% run resamplings (parallely or sequentially)
+    input_list = [(intResampling,
+                   vecStartOnly,
+                   vecPseudoSpikeTimes,
+                   dblUseMaxDur,
+                   matJitterPerTrial,)
+                  for intResampling in range(intResampNum)]
+    
+    if boolParallel:
+        intCores = mp.cpu_count() // 2  # use half the CPUs
+        with mp.Pool(intCores) as pool:
+            results = pool.starmap(resamplingWorker, input_list)
+    else:
+        results = [resamplingWorker(*args) for args in input_list]
+    
+    # Unpack results 
+    cellRandTime = [result[0] for result in results]
+    cellRandDeviation = [result[1] for result in results]
+    vecMaxRandD = [result[2] for result in results]
 
     # %% calculate significance
     dblZetaP, dblZETA = getZetaP(dblMaxD, vecMaxRandD, boolDirectQuantile)

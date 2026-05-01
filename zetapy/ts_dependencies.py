@@ -434,8 +434,9 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
     dblMedianDur = np.median(np.diff(vecTimestamps, axis=0))
     cellPseudoTime = []
     cellPseudoData = []
-    vecPseudoEventT = np.empty((intTrials, 1))
-    vecPseudoEventT.fill(np.nan)
+    #vecPseudoEventT = np.empty((intTrials, 1))
+    #vecPseudoEventT.fill(np.nan)
+    vecPseudoEventT = []
     dblPseudoEventT = 0.0
     dblStartNextAtT = 0
     intLastUsedSample = -1

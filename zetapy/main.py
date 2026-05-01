@@ -672,8 +672,8 @@ def zetatest2(vecSpikeTimes1, arrEventTimes1, vecSpikeTimes2, arrEventTimes2,
 # %% time-series zeta
 
 
-def zetatstest(vecTime, vecValue, arrEventTimes,
-               dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, boolStitch=True):
+def zetatstest(vecTime, vecValue, arrEventTimes, dblUseMaxDur=None, intResampNum=100,
+               boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, boolStitch=True):
     """
     Calculates responsiveness index zeta for timeseries data
 
@@ -685,8 +685,9 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
    FENS meeting 2022, Poster S03-480
 
     Syntax:
-    dblZetaP,dZETA = zetatstest(vecTime, vecValue, arrEventTimes,
-                 dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0, boolDirectQuantile=False, boolStitch=True):
+    dblZetaP,dZETA = zetatstest(vecTime, vecValue, arrEventTimes, dblUseMaxDur=None,
+                                intResampNum=100, boolPlot=False, dblJitterSize=2.0,
+                                boolDirectQuantile=False, boolStitch=True, boolParallel=False):
 
     Parameters
     ----------
@@ -881,6 +882,9 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
         boolStitch = True
     else:
         assert isinstance(boolStitch, bool), "boolStitch is not a boolean"
+    if boolStitch & (np.min(np.diff(arrEventTimes[:,0])) < dblUseMaxDur):
+        logging.warning('zetatstest: some events are too close together and will be excluded from the stitching procedure')        
+        
 
     # %% check data length
     dblDataT0 = np.min(vecTime)
@@ -989,7 +993,7 @@ def zetatstest(vecTime, vecValue, arrEventTimes,
 def zetatest(vecSpikeTimes, arrEventTimes,
              dblUseMaxDur=None, intResampNum=100, boolPlot=False, dblJitterSize=2.0,
              tplRestrictRange=(-np.inf, np.inf), boolStitch=True,
-             boolDirectQuantile=False, boolReturnRate=False):
+             boolDirectQuantile=False, boolReturnRate=False, boolParallel=True):
     """
     Calculates neuronal responsiveness index ZETA.
 
@@ -1029,6 +1033,8 @@ def zetatest(vecSpikeTimes, arrEventTimes,
          [Note: requires many resamplings!]
     boolReturnRate : boolean
         switch to return dictionary with spiking rate features [note: return-time is much faster if this is False]
+    boolParallel: boolean (default: True)
+        when set to True use half of the available CPU's for parallel processing
 
     Returns
     -------
@@ -1257,9 +1263,6 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         logging.warning(
             "zetatest: boolReturnRate was False, but you requested plotting, so boolReturnRate is now set to True")
 
-    # to do: parallel computing
-    boolParallel = False
-
     # %% calculate zeta
     dZETA_One = calcZetaOne(vecSpikeTimes, vecEventStarts, dblUseMaxDur, intResampNum,
                             boolDirectQuantile, dblJitterSize, boolStitch, boolParallel)
@@ -1318,7 +1321,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
         # get average of multi-scale derivatives, and rescaled to instantaneous spiking rate
         dblMeanRate = vecSpikeT.size/(dblUseMaxDur*vecEventStarts.size)
         vecRate, dRate = getMultiScaleDeriv(vecSpikeT, vecRealDeviation,
-                                            dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur, boolParallel=boolParallel)
+                                            dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur)
 
         # %% calculate IFR statistics
         if vecRate is not None:
@@ -1369,7 +1372,7 @@ def zetatest(vecSpikeTimes, arrEventTimes,
 
 
 def ifr(vecSpikeTimes, vecEventTimes,
-        dblUseMaxDur=None, dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5, boolParallel=False):
+        dblUseMaxDur=None, dblSmoothSd=2.0, dblMinScale=None, dblBase=1.5):
     """Returns instantaneous firing rates. Syntax:
         ifr(vecSpikeTimes,vecEventTimes,
                dblUseMaxDur=None, dblSmoothSd=2, dblMinScale=None, dblBase=1.5)
@@ -1451,9 +1454,6 @@ def ifr(vecSpikeTimes, vecEventTimes,
         dblUseMaxDur = np.float64(dblUseMaxDur)
         assert dblUseMaxDur.size == 1 and dblUseMaxDur > 0, "dblUseMaxDur is not a positive scalar float"
 
-    # parallel processing: to do
-    boolUseParallel = False
-
     # %% get difference from uniform
     vecThisDeviation, vecThisSpikeFracs, vecThisFracLinear, vecThisSpikeTimes = getTempOffsetOne(
         vecSpikeTimes, vecEventStarts, dblUseMaxDur)
@@ -1469,7 +1469,9 @@ def ifr(vecSpikeTimes, vecEventTimes,
     intMaxRep = vecEventStarts.size
     dblMeanRate = (intSpikeNum/(dblUseMaxDur*intMaxRep))
     [vecRate, dMSD] = getMultiScaleDeriv(vecThisSpikeTimes, vecThisDeviation,
-                                         dblSmoothSd=dblSmoothSd, dblMinScale=dblMinScale, dblBase=dblBase, dblMeanRate=dblMeanRate, dblUseMaxDur=dblUseMaxDur, boolParallel=boolParallel)
+                                         dblSmoothSd=dblSmoothSd, dblMinScale=dblMinScale,
+                                         dblBase=dblBase, dblMeanRate=dblMeanRate,
+                                         dblUseMaxDur=dblUseMaxDur)
 
     # %% build output
     vecTime = dMSD['vecT']
