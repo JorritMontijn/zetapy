@@ -1,3 +1,34 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "zetapy"
+version = "3.2.3"
+description = "Implementations of the ZETA family of statistical tests."
+readme = "README.md"
+authors = [
+    { name="Jorrit Montijn", email="j.s.montijn@gmail.com" },
+    { name="Guido Meijer" },
+    { name="Alexander Heimel" }
+]
+license = { text = "GPL-3.0-only" }
+requires-python = ">=3.7"
+dependencies = [
+    "scipy >= 1.1.0",
+    "numpy",
+    "matplotlib"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+
+[tool.setuptools]
+packages = ["zetapy"] # Or use find_packages: {find = {}}
+include-package-data = true
