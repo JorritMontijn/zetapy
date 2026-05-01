@@ -3,11 +3,13 @@ Repository containing ZETA functions and dependencies. For an example of how to 
 
 Now available as pip package! Simply "pip install zetapy".
 
-The original code is written in MATLAB by Jorrit Montijn (https://github.com/Herseninstituut/zetatest). The most up to date python version is located at (http://github.com/Herseninstituut/zetapy). The Python repository and the pip package are maintained by Guido Meijer and Alexander Heimel. 
+- This Python repository and the pip package are maintained by Guido Meijer and Alexander Heimel. 
+- The [original code](https://github.com/Herseninstituut/zetatest) is written in MATLAB by Jorrit Montijn . 
+- A Julia port, developed by Pierre Le Merre, is available here: [ZetaJu](https://github.com/PierreLeMerre/ZetaJu) 
 
-Our pre-print describing data-stitching, the time-series ZETA-test, and the two-sample tests is available online: https://www.biorxiv.org/content/10.1101/2023.10.30.564780v1
+Our pre-print describing data-stitching, the time-series ZETA-test, and the two-sample tests is [available online](https://www.biorxiv.org/content/10.1101/2023.10.30.564780v1).
 
-The article describing the original ZETA-test has been published in eLife: https://elifesciences.org/articles/71969
+The article describing the original ZETA-test has been [published in eLife](https://elifesciences.org/articles/71969).
 
 The ZETA-test for spiking data has been extensively tested on real and artificial data, and has been peer-reviewed. The time-series ZETA-test and two-sample ZETA-tests are also thoroughly tested and are described in our pre-print, which we will submit for peer-review soon. We are confident all ZETA-tests, including the two-sample tests, are reliable and statistically sound, but if you find any bugs, do let us know on the Issues page!
 
