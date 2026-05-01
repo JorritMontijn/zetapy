@@ -542,7 +542,7 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
 
         cellPseudoTime.append(vecLocalPseudoT)
         cellPseudoData.append(vecLocalPseudoV)
-        vecPseudoEventT[intTrial] = dblPseudoEventT
+        vecPseudoEventT.append(dblPseudoEventT)
 
     # %% add beginning
     dblT1 = vecTimestamps[intFirstSample]
