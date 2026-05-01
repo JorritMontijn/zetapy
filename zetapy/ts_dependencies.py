@@ -534,13 +534,15 @@ def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
         # if intFirstSample is None and vecUseSamples.size > 0:
         #     intFirstSample = vecUseSamples[0]
         #     dblPseudoT0 = dblPseudoEventT
-        if vecLocalPseudoT is not None:
-            # assign data for this trial
-            cellPseudoTime.append(vecLocalPseudoT)
-            cellPseudoData.append(vecLocalPseudoV)
-            #vecPseudoEventT[intTrial] = dblPseudoEventT
-            vecPseudoEventT.append(dblPseudoEventT)
-    vecPseudoEventT = np.array(vecPseudoEventT)
+        # if vecLocalPseudoT is not None:
+        #     # assign data for this trial
+        #     cellPseudoTime.append(vecLocalPseudoT)
+        #     cellPseudoData.append(vecLocalPseudoV)
+        #     vecPseudoEventT[intTrial] = dblPseudoEventT
+
+        cellPseudoTime.append(vecLocalPseudoT)
+        cellPseudoData.append(vecLocalPseudoV)
+        vecPseudoEventT[intTrial] = dblPseudoEventT
 
     # %% add beginning
     dblT1 = vecTimestamps[intFirstSample]

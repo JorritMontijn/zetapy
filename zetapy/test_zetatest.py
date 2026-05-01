@@ -8,10 +8,6 @@ from zetapy import ifr, zetatest, zetatstest, zetatest2, zetatstest2, plotzeta, 
 import os
 import numpy as np
 import time
-#import matplotlib.pyplot as plt
-#from scipy.stats import norm
-#from scipy.signal import convolve
-
 
 import unittest
 

@@ -1066,6 +1066,8 @@ def zetatest(vecSpikeTimes, arrEventTimes,
                 2) Latency of largest z-score with inverse sign to ZETA (same as dblLatencyInvZETA])
                 3) Peak time of instantaneous firing rate (same as dRate['dblLatencyPeak'])
                 4) Onset time, defined as the first crossing of peak half-height (same as dRate['dblLatencyPeakOnset'])
+               For true onset latencies, we recommend using LatenZy 
+               https://github.com/Herseninstituut/latenZy, based on the zeta-test. 
             vecLatencyVals; values corresponding to above latencies (ZETA, -ZETA, rate at peak, rate at onset)
 
     dRate : dict (empty if boolReturnRate was not set to True)
@@ -1083,6 +1085,9 @@ def zetatest(vecSpikeTimes, arrEventTimes,
             intPeakLoc; spike index of peak (corresponding to dZETA.vecSpikeT) [vecLatencies entry #3]
             vecPeakStartStopIdx; spike indices of peak start/stop (corresponding to dZETA.vecSpikeT) [vecLatencies entry #3]
             dblLatencyPeakOnset: latency for peak onset [vecLatencies entry #4]
+        For true onset latencies, we recommend using LatenZy 
+        https://github.com/Herseninstituut/latenZy, based on the zeta-test. 
+    
     Code by Jorrit Montijn, Guido Meijer & Alexander Heimel
 
     Version history:

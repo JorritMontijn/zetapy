@@ -3,5 +3,6 @@ dist/
 *.egg-info/
 
 #unit_tests/**
+unit_tests/**
 *.pyc
 *.asv
