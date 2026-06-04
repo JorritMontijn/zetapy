@@ -1,756 +1,688 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import logging
-from math import factorial
-from zetapy.dependencies import (findfirst, getZetaP)
+from zetapy.dependencies import get_gumbel_p_value, my_randint
 
 # %%
 
-
-def calcTsZetaTwo(vecTimestamps1, vecData1, arrEventTimes1, vecTimestamps2, vecData2, arrEventTimes2, dblSuperResFactor, dblUseMaxDur, intResampNum, boolDirectQuantile):
+def calc_ts_zeta_two(timestamps1, data1, event_times1, timestamps2, data2, event_times2, super_resolution_factor,
+                     max_duration, resampling_number, direct_quantile):
     """
    Calculates neuronal responsiveness index zeta
-    dZETA = calcTsZetaTwo(vecTimestamps1, vecData1, arrEventTimes1, vecTimestamps2, vecData2, arrEventTimes2, 
-                          dblSuperResFactor, dblUseMaxDur, intResampNum, boolDirectQuantile)
-    dZETA has entries:
-        vecRefTime, vecRealDiff, vecRealFrac1, vecRealFrac2, matRandDiff, dblZetaP, dblZETA, intZETAIdx
+    zeta_data = calc_ts_zeta_two(timestamps1, data1, event_times1, timestamps2, data2, event_times2, 
+                          super_resolution_factor, max_duration, resampling_number, direct_quantile)
+    zeta_data has entries:
+        reference_time, real_difference, real_fraction1, real_fraction2, random_differences, zeta_p_value, zeta_score, zeta_index
     """
 
     # %% pre-allocate output
-    vecRefTime = None
-    vecRealDiff = None
-    vecRealFrac1 = None
-    vecRealFrac2 = None
-    matRandDiff = None
-    dblZetaP = 1.0
-    dblZETA = 0.0
-    intZETAIdx = None
-    matTracePerTrial1 = None
-    matTracePerTrial2 = None
+    reference_time = None
+    real_difference = None
+    real_fraction1 = None
+    real_fraction2 = None
+    random_differences = None
+    zeta_p_value = 1.0
+    zeta_score = 0.0
+    zeta_index = None
+    trace_per_trial1 = None
+    trace_per_trial2 = None
    
-    dZETA = dict()
-    dZETA['vecRefTime'] = vecRefTime
-    dZETA['vecRealDiff'] = vecRealDiff
-    dZETA['vecRealFrac1'] = vecRealFrac1
-    dZETA['vecRealFrac2'] = vecRealFrac2
-    dZETA['matRandDiff'] = matRandDiff
-    dZETA['dblZetaP'] = dblZetaP
-    dZETA['dblZETA'] = dblZETA
-    dZETA['intZETAIdx'] = intZETAIdx
-    dZETA['matTracePerTrial1'] = matTracePerTrial1
-    dZETA['matTracePerTrial2'] = matTracePerTrial2
+    zeta_data = dict()
+    zeta_data['reference_time'] = reference_time
+    zeta_data['real_difference'] = real_difference
+    zeta_data['real_fraction1'] = real_fraction1
+    zeta_data['real_fraction2'] = real_fraction2
+    zeta_data['random_differences'] = random_differences
+    zeta_data['zeta_p_value'] = zeta_p_value
+    zeta_data['zeta_score'] = zeta_score
+    zeta_data['zeta_index'] = zeta_index
+    zeta_data['trace_per_trial1'] = trace_per_trial1
+    zeta_data['trace_per_trial2'] = trace_per_trial2
 
     # %% reduce data
-    # assert that arrEventTimes is a 1D array of floats
-    assert len(arrEventTimes1.shape) < 3 and len(arrEventTimes2.shape) < 3 \
-        and issubclass(arrEventTimes1.dtype.type, np.floating) and issubclass(arrEventTimes2.dtype.type, np.floating), \
-        "Input arrEventTimes1 or arrEventTimes2 is not a 1D or 2D float np.array"
+    # assert that event_times is a 1D array of floats
+    assert len(event_times1.shape) < 3 and len(event_times2.shape) < 3 \
+        and issubclass(event_times1.dtype.type, np.floating) and issubclass(event_times2.dtype.type, np.floating), \
+        "Input event_times1 or event_times2 is not a 1D or 2D float np.array"
 
-    # ensure orientation arrEventTimes1
-    if len(arrEventTimes1.shape) > 1:
-        if arrEventTimes1.shape[1] < 3:
+    # ensure orientation event_times1
+    if len(event_times1.shape) > 1:
+        if event_times1.shape[1] < 3:
             pass
-        elif arrEventTimes1.shape[0] < 3:
-            arrEventTimes1 = arrEventTimes1.T
+        elif event_times1.shape[0] < 3:
+            event_times1 = event_times1.T
         else:
             raise Exception(
-                "Input error: arrEventTimes1 must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
+                "Input error: event_times1 must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
     else:
         # turn into T-by-1 array
-        arrEventTimes1 = np.reshape(arrEventTimes1, (-1, 1))
+        event_times1 = np.reshape(event_times1, (-1, 1))
 
-    # ensure orientation arrEventTimes2
-    if len(arrEventTimes2.shape) > 1:
-        if arrEventTimes2.shape[1] < 3:
+    # ensure orientation event_times2
+    if len(event_times2.shape) > 1:
+        if event_times2.shape[1] < 3:
             pass
-        elif arrEventTimes2.shape[0] < 3:
-            arrEventTimes2 = arrEventTimes2.T
+        elif event_times2.shape[0] < 3:
+            event_times2 = event_times2.T
         else:
             raise Exception(
-                "Input error: arrEventTimes2 must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
+                "Input error: event_times2 must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
     else:
         # turn into T-by-1 array
-        arrEventTimes2 = np.reshape(arrEventTimes2, (-1, 1))
+        event_times2 = np.reshape(event_times2, (-1, 1))
 
     # reduce data 1
-    vecEventStarts1 = arrEventTimes1[:, 0]
-    dblPreUse = -dblUseMaxDur
-    dblPostUse = dblUseMaxDur*2
-    dblStartT1 = np.min(vecEventStarts1) + dblPreUse*2
-    dblStopT1 = np.max(vecEventStarts1) + dblPostUse*2
+    event_starts1 = event_times1[:, 0]
+    pre_use = -max_duration
+    post_use = max_duration * 2
+    start_time1 = np.min(event_starts1) + pre_use * 2
+    stop_time1 = np.max(event_starts1) + post_use * 2
 
-    indKeepEntries1 = np.logical_and(vecTimestamps1 >= dblStartT1, vecTimestamps1 <= dblStopT1)
-    vecTimestamps1 = vecTimestamps1[indKeepEntries1]
-    vecData1 = vecData1[indKeepEntries1]
+    keep_entries1 = np.logical_and(timestamps1 >= start_time1, timestamps1 <= stop_time1)
+    timestamps1 = timestamps1[keep_entries1]
+    data1 = data1[keep_entries1]
 
-    if vecTimestamps1.size < 3:
+    if timestamps1.size < 3:
         logging.warning(
-            "calcTsZetaTwo:vecTimestamps1: too few entries around events to calculate zeta")
-        return dZETA
+            "calc_ts_zeta_two:timestamps1: too few entries around events to calculate zeta")
+        return zeta_data
 
     # reduce data 2
-    vecEventStarts2 = arrEventTimes2[:, 0]
-    dblPreUse = -dblUseMaxDur
-    dblPostUse = dblUseMaxDur*2
-    dblStartT2 = np.min(vecEventStarts2) + dblPreUse*2
-    dblStopT2 = np.max(vecEventStarts2) + dblPostUse*2
+    event_starts2 = event_times2[:, 0]
+    pre_use = -max_duration
+    post_use = max_duration * 2
+    start_time2 = np.min(event_starts2) + pre_use * 2
+    stop_time2 = np.max(event_starts2) + post_use * 2
 
-    indKeepEntries2 = np.logical_and(vecTimestamps2 >= dblStartT2, vecTimestamps2 <= dblStopT2)
-    vecTimestamps2 = vecTimestamps2[indKeepEntries2]
-    vecData2 = vecData2[indKeepEntries2]
+    keep_entries2 = np.logical_and(timestamps2 >= start_time2, timestamps2 <= stop_time2)
+    timestamps2 = timestamps2[keep_entries2]
+    data2 = data2[keep_entries2]
 
-    if vecTimestamps2.size < 3:
+    if timestamps2.size < 3:
         logging.warning(
-            "calcTsZetaTwo:vecTimestamps2: too few entries around events to calculate zeta")
-        return dZETA
+            "calc_ts_zeta_two:timestamps2: too few entries around events to calculate zeta")
+        return zeta_data
 
     # %% rescale
-    dblMin = min(np.min(vecData1), np.min(vecData2))
-    dblMax = max(np.max(vecData1), np.max(vecData2))
-    dblRange = (dblMax-dblMin)
-    if dblRange == 0:
-        dblRange = 1
+    min_val = min(np.min(data1), np.min(data2))
+    max_val = max(np.max(data1), np.max(data2))
+    data_range = (max_val - min_val)
+    if data_range == 0:
+        data_range = 1
         logging.warning(
-            "calcTsZetaTwo:ZeroVar: Input data has zero variance")
+            "calc_ts_zeta_two:ZeroVar: Input data has zero variance")
 
-    vecTraceAct1 = np.divide(vecData1-dblMin, dblRange)
-    vecTraceAct2 = np.divide(vecData2-dblMin, dblRange)
+    trace_activity1 = np.divide(data1 - min_val, data_range)
+    trace_activity2 = np.divide(data2 - min_val, data_range)
 
     # %% build reference time and matrices
     # time
-    vecRefT1 = getTsRefT(vecTimestamps1, vecEventStarts1, dblUseMaxDur)
-    vecRefT2 = getTsRefT(vecTimestamps2, vecEventStarts2, dblUseMaxDur)
+    reference_t1 = get_ts_ref_t(timestamps1, event_starts1, max_duration)
+    reference_t2 = get_ts_ref_t(timestamps2, event_starts2, max_duration)
     # set tol
-    dblSampInterval = (np.median(np.diff(vecRefT1)) + np.median(np.diff(vecRefT2)))/2.0
-    dblTol = dblSampInterval/dblSuperResFactor
-    vecRefTime = uniquetol(np.concatenate((vecRefT1, vecRefT2), axis=0), dblTol)
-    intT = len(vecRefTime)
+    sample_interval = (np.median(np.diff(reference_t1)) + np.median(np.diff(reference_t2))) / 2.0
+    tolerance = sample_interval / super_resolution_factor
+    reference_time = uniquetol(np.concatenate((reference_t1, reference_t2), axis=0), tolerance)
+    num_time_points = len(reference_time)
 
     # matrices
-    vecTime1, matTracePerTrial1 = getInterpolatedTimeSeries(vecTimestamps1, vecTraceAct1, vecEventStarts1, vecRefTime)
-    vecTime2, matTracePerTrial2 = getInterpolatedTimeSeries(vecTimestamps2, vecTraceAct2, vecEventStarts2, vecRefTime)
+    time1, trace_per_trial1 = get_interpolated_time_series(timestamps1, trace_activity1, event_starts1, reference_time)
+    time2, trace_per_trial2 = get_interpolated_time_series(timestamps2, trace_activity2, event_starts2, reference_time)
 
     # %% get trial responses
-    vecRealDiff, vecRealFrac1, vecRealFrac2 = getTimeseriesOffsetTwo(matTracePerTrial1, matTracePerTrial2)
-    intZETAIdx = np.argmax(np.abs(vecRealDiff))
-    dblMaxD = np.abs(vecRealDiff[intZETAIdx])
+    real_difference, real_fraction1, real_fraction2 = get_timeseries_offset_two(trace_per_trial1, trace_per_trial2)
+    zeta_index = np.argmax(np.abs(real_difference))
+    max_deviation = np.abs(real_difference[zeta_index])
 
     # repeat procedure, but swap trials randomly in each resampling
-    matRandDiff = np.empty((intResampNum, intT))
-    matRandDiff.fill(np.nan)
-    vecMaxRandD = np.empty((intResampNum, 1))
-    vecMaxRandD.fill(np.nan)
+    random_differences = np.empty((resampling_number, num_time_points))
+    random_differences.fill(np.nan)
+    max_random_deviations = np.empty((resampling_number, 1))
+    max_random_deviations.fill(np.nan)
 
-    matAggregateTrials = np.concatenate((matTracePerTrial1, matTracePerTrial2), axis=0)
-    intTrials1 = matTracePerTrial1.shape[0]
-    intTrials2 = matTracePerTrial2.shape[0]
-    intTotTrials = intTrials1+intTrials2
+    aggregate_trials = np.concatenate((trace_per_trial1, trace_per_trial2), axis=0)
+    num_trials1 = trace_per_trial1.shape[0]
+    num_trials2 = trace_per_trial2.shape[0]
+    total_trials = num_trials1 + num_trials2
 
-    # %% run resamplings
-    for intResampling in range(intResampNum):
-        # %% get random subsample
-        # if cond1 has 10 trials, and cond2 has 100, then:
-        # for shuffle of cond1: take 10 trials from set of 110
-        # for shuffle of cond2: take 100 trials from set of 110
-        vecUseRand1 = my_randint(intTotTrials, size=intTrials1)
-        vecUseRand2 = my_randint(intTotTrials, size=intTrials2)
+    # %% run resamplings (Optimized)
+    for resampling_idx in range(resampling_number):
+        # Randomly sample trial indices for both groups
+        use_random1 = my_randint(total_trials, size=num_trials1)
+        use_random2 = my_randint(total_trials, size=num_trials2)
 
-        matTrace1_Rand = matAggregateTrials[vecUseRand1, :]
-        matTrace2_Rand = matAggregateTrials[vecUseRand2, :]
+        # Calculate the mean of each group and their difference
+        # Using axis=0 directly avoids the .T transposition inside get_timeseries_offset_two
+        mean_diff = np.nanmean(aggregate_trials[use_random1, :], axis=0) - \
+                    np.nanmean(aggregate_trials[use_random2, :], axis=0)
 
-        # get difference
-        vecRandDiff, vecRandFrac1, vecRandFrac2 = getTimeseriesOffsetTwo(matTrace1_Rand, matTrace2_Rand)
+        # Calculate the cumulative difference profile
+        # cumsum(a) - cumsum(b) is mathematically equivalent to cumsum(a - b)
+        random_diff = np.cumsum(mean_diff)
+        
+        # Mean-subtract the deviation profile
+        random_diff -= np.mean(random_diff)
 
-        # assign data
-        matRandDiff[intResampling, :] = vecRandDiff
-        dblAddVal = np.max(np.abs(vecRandDiff))
-        if dblAddVal is None or dblAddVal == 0:
-            dblAddVal = dblMaxD
-        vecMaxRandD[intResampling] = dblAddVal
+        # Store directly in pre-allocated arrays
+        random_differences[resampling_idx, :] = random_diff
+        add_value = np.max(np.abs(random_diff))
+        
+        # Fallback for null distributions
+        max_random_deviations[resampling_idx] = add_value if (add_value and add_value != 0) else max_deviation
 
     # %% calculate significance
-    dblZetaP, dblZETA = getZetaP(dblMaxD, vecMaxRandD, boolDirectQuantile)
+    zeta_p_value, zeta_score = get_gumbel_p_value(max_deviation, max_random_deviations, direct_quantile)
     
     # %% assign output
-    dZETA['vecRefTime'] = vecRefTime
-    dZETA['vecRealDiff'] = vecRealDiff
-    dZETA['vecRealFrac1'] = vecRealFrac1
-    dZETA['vecRealFrac2'] = vecRealFrac2
-    dZETA['matRandDiff'] = matRandDiff
-    dZETA['dblZetaP'] = dblZetaP
-    dZETA['dblZETA'] = dblZETA
-    dZETA['intZETAIdx'] = intZETAIdx
-    dZETA['matTracePerTrial1'] = matTracePerTrial1
-    dZETA['matTracePerTrial2'] = matTracePerTrial2
+    zeta_data['reference_time'] = reference_time
+    zeta_data['real_difference'] = real_difference
+    zeta_data['real_fraction1'] = real_fraction1
+    zeta_data['real_fraction2'] = real_fraction2
+    zeta_data['random_differences'] = random_differences
+    zeta_data['zeta_p_value'] = zeta_p_value
+    zeta_data['zeta_score'] = zeta_score
+    zeta_data['zeta_index'] = zeta_index
+    zeta_data['trace_per_trial1'] = trace_per_trial1
+    zeta_data['trace_per_trial2'] = trace_per_trial2
     
-    return dZETA
+    return zeta_data
 
-# %% getTimeseriesOffsetTwo
+# %% get_timeseries_offset_two
 
 
-def getTimeseriesOffsetTwo(matTracePerTrial1, matTracePerTrial2):
-    '''
-    vecThisDiff,vecThisFrac1,vecThisFrac2 = getTimeseriesOffsetTwo(matTracePerTrial1,matTracePerTrial2)
-    '''
+def get_timeseries_offset_two(trace_per_trial1, trace_per_trial2):
+    """
+    Calculates the cumulative difference profile between two time-series conditions.
+
+    Parameters
+    ----------
+    trace_per_trial1 : ndarray
+        Trial-by-time matrix for condition 1.
+    trace_per_trial2 : ndarray
+        Trial-by-time matrix for condition 2.
+
+    Returns
+    -------
+    this_difference : ndarray
+        The mean-subtracted cumulative difference between the two conditions.
+    this_fraction1, this_fraction2 : ndarray
+        The cumulative sum of the mean traces for condition 1 and 2, respectively.
+    """
+
 
     # cond1 goes to sum(v_mu1); cond2 goes to sum(v_mu2)
-    vecMeanTrace1 = np.nanmean(matTracePerTrial1.T, axis=1)
-    vecMeanTrace2 = np.nanmean(matTracePerTrial2.T, axis=1)
+    mean_trace1 = np.nanmean(trace_per_trial1.T, axis=1)
+    mean_trace2 = np.nanmean(trace_per_trial2.T, axis=1)
 
     # get real cumsums
-    vecThisFrac1 = np.cumsum(vecMeanTrace1)
-    vecThisFrac2 = np.cumsum(vecMeanTrace2)
+    this_fraction1 = np.cumsum(mean_trace1)
+    this_fraction2 = np.cumsum(mean_trace2)
 
     # take difference
-    vecDeviation = vecThisFrac1 - vecThisFrac2
+    deviation = this_fraction1 - this_fraction2
 
     # mean-subtract
-    vecThisDiff = vecDeviation - np.mean(vecDeviation)
+    this_difference = deviation - np.mean(deviation)
 
     # return
-    return vecThisDiff, vecThisFrac1, vecThisFrac2
+    return this_difference, this_fraction1, this_fraction2
 
 # %%
 
 
-def calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch):
+def calc_ts_zeta_one(timestamps, data, event_times, max_duration, resampling_number, direct_quantile, jitter_size,
+                     stitch_enabled):
     """
-   Calculates neuronal responsiveness index zeta
-    dZETA = calcTsZetaOne(vecTimestamps, vecData, arrEventTimes, dblUseMaxDur, intResampNum, boolDirectQuantile, dblJitterSize, boolStitch)
-    dZETA has entries:
-        vecRealTime, vecRealDeviation, vecRealFrac, vecRealFracLinear, cellRandTime, cellRandDeviation, dblZetaP, dblZETA, intZETAIdx
+    Calculates the ZETA-test for a single time-series compared to a jittered null distribution.
+
+    Parameters
+    ----------
+    timestamps : ndarray
+        1D array of timestamps for the continuous data.
+    data : ndarray
+        1D array of values corresponding to the timestamps.
+    event_times : ndarray
+        1D or 2D array of event onset times.
+    max_duration : float
+        The duration of the window to analyze after each event.
+    resampling_number : int
+        Number of jittered resamplings to perform for the null distribution.
+    direct_quantile : bool
+        Whether to calculate the p-value directly from the distribution or via Gumbel fit.
+    jitter_size : float
+        The multiplier for max_duration to determine the jitter range.
+    stitch_enabled : bool
+        Whether to stitch stimulus periods together to create a pseudo-continuous trace.
+
+    Returns
+    -------
+    zeta_data : dict
+        Dictionary containing the ZETA score, p-value, and intermediate calculation results
+        (real_deviation, real_time, random_deviations, etc.).
     """
+    
+    # pre-allocate output
+    real_time = None
+    real_deviation = None
+    real_fraction = None
+    real_fraction_linear = None
+    random_times = None
+    random_deviations = None
+    zeta_p_value = 1.0
+    zeta_score = 0.0
+    zeta_index = None
 
-    # %% pre-allocate output
-    vecRealTime = None
-    vecRealDeviation = None
-    vecRealFrac = None
-    vecRealFracLinear = None
-    cellRandTime = None
-    cellRandDeviation = None
-    dblZetaP = 1.0
-    dblZETA = 0.0
-    intZETAIdx = None
-
-    dZETA = dict()
-    dZETA['vecRealTime'] = vecRealTime
-    dZETA['vecRealDeviation'] = vecRealDeviation
-    dZETA['vecRealFrac'] = vecRealFrac
-    dZETA['vecRealFracLinear'] = vecRealFracLinear
-    dZETA['cellRandTime'] = cellRandTime
-    dZETA['cellRandDeviation'] = cellRandDeviation
-    dZETA['dblZetaP'] = dblZetaP
-    dZETA['dblZETA'] = dblZETA
-    dZETA['intZETAIdx'] = intZETAIdx
+    zeta_data = dict()
+    zeta_data['real_time'] = real_time
+    zeta_data['real_deviation'] = real_deviation
+    zeta_data['real_fraction'] = real_fraction
+    zeta_data['real_fraction_linear'] = real_fraction_linear
+    zeta_data['random_times'] = random_times
+    zeta_data['random_deviations'] = random_deviations
+    zeta_data['zeta_p_value'] = zeta_p_value
+    zeta_data['zeta_score'] = zeta_score
+    zeta_data['zeta_index'] = zeta_index
 
     # %% reduce data
-    # ensure orientation and assert that arrEventTimes is a 1D array of floats
-    assert len(arrEventTimes.shape) < 3 and issubclass(
-        arrEventTimes.dtype.type, np.floating), "Input arrEventTimes is not a 1D or 2D float np.array"
-    if len(arrEventTimes.shape) > 1:
-        if arrEventTimes.shape[1] < 3:
+    # ensure orientation and assert that event_times is a 1D array of floats
+    assert len(event_times.shape) < 3 and issubclass(
+        event_times.dtype.type, np.floating), "Input event_times is not a 1D or 2D float np.array"
+    if len(event_times.shape) > 1:
+        if event_times.shape[1] < 3:
             pass
-        elif arrEventTimes.shape[0] < 3:
-            arrEventTimes = arrEventTimes.T
+        elif event_times.shape[0] < 3:
+            event_times = event_times.T
         else:
             raise Exception(
-                "Input error: arrEventTimes must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
+                "Input error: event_times must be T-by-1 or T-by-2; with T being the number of trials/stimuli/events")
     else:
         # turn into T-by-1 array
-        arrEventTimes = np.reshape(arrEventTimes, (-1, 1))
+        event_times = np.reshape(event_times, (-1, 1))
     # define event starts
-    vecEventT = arrEventTimes[:, 0]
+    event_starts = event_times[:, 0]
 
-    # New matlab code
-    # dblPreUse = -dblUseMaxDur*dblJitterSize;
-    # dblPostUse = dblUseMaxDur*(dblJitterSize+1);
-    #
-    # dblStartT = min(vecEventStarts) + dblPreUse*2;
-    # dblStopT = max(vecEventStarts) + dblPostUse*2;
-    # indRemoveEntries = (vecTraceT < dblStartT) | (vecTraceT > dblStopT);
-    # vecTraceT(indRemoveEntries) = [];
-    # vecTraceAct(indRemoveEntries) = [];
+    pre_use = -max_duration * jitter_size
+    post_use = max_duration * (jitter_size + 1)
+    start_time = np.min(event_starts) + pre_use * 2
+    stop_time = np.max(event_starts) + post_use * 2
 
-    # Old python code
-    #dblMinPreEventT = np.min(vecEventT)-dblUseMaxDur*5*dblJitterSize
-    #dblStartT = max([vecTimestamps[0], dblMinPreEventT])
-    #dblStopT = max(vecEventT)+dblUseMaxDur*5*dblJitterSize
-    
-    # New python code to match matlab 2024-09-11
-    dblPreUse = -dblUseMaxDur*dblJitterSize
-    dblPostUse = dblUseMaxDur*(dblJitterSize+1)
-    dblStartT = np.min(vecEventT) + dblPreUse*2
-    dblStopT = np.max(vecEventT) + dblPostUse*2
+    keep_entries = np.logical_and(timestamps >= start_time, timestamps <= stop_time)
+    timestamps = timestamps[keep_entries]
+    data = data[keep_entries]
 
-    indKeepEntries = np.logical_and(vecTimestamps >= dblStartT, vecTimestamps <= dblStopT)
-    vecTimestamps = vecTimestamps[indKeepEntries]
-    vecData = vecData[indKeepEntries]
-
-    # New code to follow matlab 2024-09-11
-    dblMin = min(vecData);
-    dblMax = max(vecData);
-    dblRange = (dblMax-dblMin);
-    if dblRange == 0:
-        dblRange = 1
+    min_val = np.min(data)
+    max_val = np.max(data)
+    data_range = (max_val - min_val)
+    if data_range == 0:
+        data_range = 1
         logging.warning(
-            "calcTsZetaOne:ZeroVar: Input data has zero variance")
-    vecData = (vecData-dblMin)/dblRange
+            "calc_ts_zeta_one:ZeroVar: Input data has zero variance")
+    data = (data - min_val) / data_range
 
-    #if vecTimestamps.size < 3:
-    #    logging.warning(
-    #        "calcTsZetaOne:vecTimestamps: too few entries around events to calculate zeta")
-    #    return dZETA
-    
     # %% build pseudo data, stitching stimulus periods
-    #vecPseudoT, vecPseudoV, vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
-    #vecPseudoV = vecPseudoV - np.min(vecPseudoV)
-
-    if boolStitch:
-        vecPseudoT, vecPseudoV, vecPseudoEventT = getPseudoTimeSeries(vecTimestamps, vecData, vecEventT, dblUseMaxDur)
+    if stitch_enabled:
+        pseudo_timestamps, pseudo_data, pseudo_event_starts = get_pseudo_time_series(
+            timestamps, data, event_starts, max_duration)
     else:
-        vecPseudoT = vecTimestamps
-        vecPseudoV = vecData
-        vecPseudoEventT = vecEventT
+        pseudo_timestamps = timestamps
+        pseudo_data = data
+        pseudo_event_starts = event_starts
 
-    vecPseudoV = vecPseudoV - np.min(vecPseudoV)
+    pseudo_data = pseudo_data - np.min(pseudo_data)
 
-    if vecTimestamps.size < 3:
+    if timestamps.size < 3:
         logging.warning(
-            "calcTsZetaOne:vecPseudoT: too few entries around events to calculate zeta")
-        return dZETA
+            "calc_ts_zeta_one:pseudo_timestamps: too few entries around events to calculate zeta")
+        return zeta_data
 
     # %% run normal
     # get data
-    dblSuperResFactorOrRefT = 100;
-    vecRealDeviation, vecRealFrac, vecRealFracLinear, vecRealTime = getTimeseriesOffsetOne(
-        vecPseudoT, vecPseudoV, vecPseudoEventT, dblUseMaxDur,dblSuperResFactorOrRefT)
+    super_resolution_factor_or_ref_t = 100
+    real_deviation, real_fraction, real_fraction_linear, real_time = get_timeseries_offset_one(
+        pseudo_timestamps, pseudo_data, pseudo_event_starts, max_duration, super_resolution_factor_or_ref_t)
 
-    if vecRealDeviation.size < 3:
+    if real_deviation.size < 3:
         logging.warning(
-            "calcZetaOne:vecRealDeviation: too few spikes around events to calculate zeta")
-        return dZETA
+            "calc_ts_zeta_one:real_deviation: too few spikes around events to calculate zeta")
+        return zeta_data
 
-    vecRealDeviation = vecRealDeviation - np.mean(vecRealDeviation)
-    intZETAIdx = np.argmax(np.abs(vecRealDeviation))
-    dblMaxD = np.abs(vecRealDeviation[intZETAIdx])
+    real_deviation = real_deviation - np.mean(real_deviation)
+    zeta_index = np.argmax(np.abs(real_deviation))
+    max_deviation = np.abs(real_deviation[zeta_index])
 
     # %% create random jitters
     # run pre-set number of iterations
-    cellRandTime = []
-    cellRandDeviation = []
-    vecMaxRandD = np.empty((intResampNum, 1))
-    vecMaxRandD.fill(np.nan)
+    random_times = []
+    random_deviations = []
+    max_random_deviations = np.empty((resampling_number, 1))
+    max_random_deviations.fill(np.nan)
 
-    vecStartOnly = np.reshape(vecPseudoEventT, (-1, 1))
-    intTrials = vecStartOnly.size
-    matJitterPerTrial = np.empty((intTrials, intResampNum))
-    matJitterPerTrial.fill(np.nan)
-    # uniform jitters between dblJitterSize*[-tau, +tau]
-    for intResampling in range(intResampNum):
-        matJitterPerTrial[:, intResampling] = dblJitterSize*dblUseMaxDur * \
-            ((np.random.rand(vecStartOnly.shape[0]) - 0.5) * 2)
+    event_starts_only = np.reshape(pseudo_event_starts, (-1, 1))
+    num_trials = event_starts_only.size
+    jitter_per_trial = jitter_size * max_duration * ((np.random.rand(resampling_number, num_trials).T - 0.5) * 2)
 
     # %% this part is only to check if matlab and python give the same exact results
-    # unfortunately matlab's randperm() and numpy's np.random.permutation give different outputs even with
-    # identical seeds and identical random number generators, so I've had to load in a table of random values here...
-    boolTest = False
-    if boolTest:
+    test_mode = False
+    if test_mode:
         from scipy.io import loadmat
         print('Loading deterministic jitter data for comparison with matlab')
         logging.warning(
-            "calcZetaOne:debugMode: set boolTest to False to suppress this warning")
-        dLoad = loadmat('matJitterPerTrialTsZeta.mat')
-        matJitterPerTrial = dLoad['matJitterPerTrial']
+            "calc_ts_zeta_one:debugMode: set test_mode to False to suppress this warning")
+        data_load = loadmat('matJitterPerTrialTsZeta.mat')
+        jitter_per_trial = data_load['matJitterPerTrial']
 
         # reset rng
         np.random.seed(1)
 
     # %% run resamplings
-    for intResampling in range(intResampNum):
-        # get random subsample
-        vecStimUseOnTime = vecStartOnly[:, 0] + matJitterPerTrial[:, intResampling].T
+    for resampling_idx in range(resampling_number):
+        # Calculate jittered stimulus onset times for this iteration
+        stim_use_on_time = event_starts_only[:, 0] + jitter_per_trial[:, resampling_idx]
 
-        # get temp offset
-        vecRandDeviation, vecThisFrac, vecThisFracLinear, vecRandT = getTimeseriesOffsetOne(
-            vecPseudoT, vecPseudoV, vecStimUseOnTime, dblUseMaxDur)
+        # Directly use interpolation to avoid the overhead of get_timeseries_offset_one
+        _, trace_per_trial = get_interpolated_time_series(
+            pseudo_timestamps, pseudo_data, stim_use_on_time, real_time
+        )
 
-        # assign data
-        cellRandTime.append(vecRandT)
-        cellRandDeviation.append(vecRandDeviation - np.mean(vecRandDeviation))
-        vecMaxRandD[intResampling] = np.max(np.abs(cellRandDeviation[intResampling]))
+        # Calculate mean across trials and normalize to a cumulative fraction
+        mean_trace = np.nanmean(trace_per_trial, axis=0)
+        sum_mean = np.sum(mean_trace)
+        if sum_mean == 0:
+            sum_mean = 1.0
+
+        this_fraction = np.cumsum(mean_trace) / sum_mean
+        
+        # Deviation from the linear ramp (real_fraction_linear is constant for all resamplings)
+        deviation = this_fraction - real_fraction_linear
+        deviation -= np.mean(deviation)
+
+        random_times.append(real_time)
+        random_deviations.append(deviation)
+        max_random_deviations[resampling_idx] = np.max(np.abs(deviation))
 
     # %% calculate significance
-    dblZetaP, dblZETA = getZetaP(dblMaxD, vecMaxRandD, boolDirectQuantile)
+    zeta_p_value, zeta_score = get_gumbel_p_value(max_deviation, max_random_deviations, direct_quantile)
 
     # %% assign output
-    dZETA = dict()
-    dZETA['vecRealTime'] = vecRealTime
-    dZETA['vecRealDeviation'] = vecRealDeviation
-    dZETA['vecRealFrac'] = vecRealFrac
-    dZETA['vecRealFracLinear'] = vecRealFracLinear
-    dZETA['cellRandTime'] = cellRandTime
-    dZETA['cellRandDeviation'] = cellRandDeviation
-    dZETA['dblZetaP'] = dblZetaP
-    dZETA['dblZETA'] = dblZETA
-    dZETA['intZETAIdx'] = intZETAIdx
+    zeta_data['real_time'] = real_time
+    zeta_data['real_deviation'] = real_deviation
+    zeta_data['real_fraction'] = real_fraction
+    zeta_data['real_fraction_linear'] = real_fraction_linear
+    zeta_data['random_times'] = random_times
+    zeta_data['random_deviations'] = random_deviations
+    zeta_data['zeta_p_value'] = zeta_p_value
+    zeta_data['zeta_score'] = zeta_score
+    zeta_data['zeta_index'] = zeta_index
 
-    return dZETA
+    return zeta_data
 
-# %% getpseudotimeseries
+# %% get_pseudo_time_series
 
 
-def getPseudoTimeSeries(vecTimestamps, vecData, vecEventTimes, dblWindowDur):
-    '''
-    vecPseudoTime, vecPseudoData, vecPseudoEventT = getPseudoTimeSeries(vecTime, vecData, vecEventTimes, dblWindowDur)
+def get_pseudo_time_series(timestamps, data, event_times, window_duration):
+    """
+    Stitches together segments of a time-series around events to create a
+    pseudo-continuous trace, removing inter-stimulus intervals.
 
     Parameters
     ----------
-    vecTimestamps : TYPE
-        DESCRIPTION.
-    vecData : TYPE
-        DESCRIPTION.
-    vecEventTimes : TYPE
-        DESCRIPTION.
-    dblWindowDur : TYPE
-        DESCRIPTION.
+    timestamps : ndarray
+        1D array of timestamps for the continuous data.
+    data : ndarray
+        1D array of values corresponding to the timestamps.
+    event_times : ndarray
+        1D array of event onset times.
+    window_duration : float
+        The duration of the window to extract after each event.
 
     Returns
     -------
-    vecPseudoTime, vecPseudoData, vecPseudoEventT.
+    pseudo_timestamps : ndarray
+        Stitched timestamps starting from 0.
+    pseudo_data : ndarray
+        Stitched data values corresponding to pseudo_timestamps.
+    pseudo_event_times : list
+        The new onset times of the events within the stitched trace.
+    """
 
-    '''
     # %% prep
     # ensure sorting and alignment
-    vecTimestamps = np.squeeze(np.vstack(vecTimestamps))
-    vecData = np.squeeze(np.vstack(vecData))
-    vecReorder = np.argsort(vecTimestamps, axis=0)
-    vecTimestamps = vecTimestamps[vecReorder]
-    vecData = vecData[vecReorder]
-    vecEventTimes = np.squeeze(np.sort(np.vstack(vecEventTimes), axis=0))
-
-    # %% pre-allocate
-    intSamples = vecTimestamps.size
-    intTrials = vecEventTimes.size
-    dblMedianDur = np.median(np.diff(vecTimestamps, axis=0))
-    cellPseudoTime = []
-    cellPseudoData = []
-    #vecPseudoEventT = np.empty((intTrials, 1))
-    #vecPseudoEventT.fill(np.nan)
-    vecPseudoEventT = []
-    dblPseudoEventT = 0.0
-    dblStartNextAtT = 0
-    intLastUsedSample = -1
-    intFirstSample = None
+    timestamps = np.squeeze(np.vstack(timestamps))
+    data = np.squeeze(np.vstack(data))
+    reorder_indices = np.argsort(timestamps, axis=0)
+    timestamps = timestamps[reorder_indices]
+    data = data[reorder_indices]
+    event_times = np.squeeze(np.sort(np.vstack(event_times), axis=0))
+    num_samples = timestamps.size
+    num_trials = event_times.size
+    median_duration = np.median(np.diff(timestamps, axis=0))
+    pseudo_time_list = []
+    pseudo_data_list = []
+    pseudo_event_times = []
+    start_next_at_time = 0
+    last_used_sample = -1
 
     # %% run
-    for intTrial, dblEventT in enumerate(vecEventTimes):
-        # %%
-        # intTrial = intTrial + 1
-        # dblEventT = vecEventTimes[intTrial]
-        # get eligible samples
-        
-        # intStartSample = findfirst(vecTimestamps >= dblEventT)
-        # matching matlab 2024-09-11
-        intStartSample = findfirst(vecTimestamps > dblEventT) - 1
-        intEndSample = findfirst(vecTimestamps > (dblEventT+dblWindowDur))
-
-        if intEndSample is None:
-            intEndSample = intStartSample
-        vecEligibleSamples = np.arange(intStartSample, intEndSample+1)
-        indUseSamples = np.logical_and(vecEligibleSamples >= 0, vecEligibleSamples < intSamples)
-        vecUseSamples = vecEligibleSamples[indUseSamples]
+    for trial_idx, event_time in enumerate(event_times):
+        start_sample = np.searchsorted(timestamps, event_time, side='right') - 1
+        end_sample_idx = np.searchsorted(timestamps, event_time + window_duration, side='right')
+        if end_sample_idx >= len(timestamps):
+            end_sample = start_sample
+        else:
+            end_sample = end_sample_idx
+        eligible_samples = np.arange(start_sample, end_sample + 1)
+        use_samples_mask = np.logical_and(eligible_samples >= 0, eligible_samples < num_samples)
+        use_samples = eligible_samples[use_samples_mask]
 
 		# check if beginning or end
-        if intTrial==0:
-            vecUseSamples = np.arange(0,vecUseSamples[-1]+1)
-        if intTrial==(intTrials-1):
-            vecUseSamples = np.arange(vecUseSamples[0], intSamples)
+        if trial_idx == 0 and use_samples.size > 0:
+            use_samples = np.arange(0, use_samples[-1] + 1)
+        if trial_idx == (num_trials - 1) and use_samples.size > 0:
+            use_samples = np.arange(use_samples[0], num_samples)
 
-        vecUseT = vecTimestamps[vecUseSamples]
-        indOverlap = (vecUseSamples <= intLastUsedSample)
-        if np.any(indOverlap):
-            vecUseSamples = vecUseSamples[np.logical_not(indOverlap)]
-            vecUseT = vecTimestamps[vecUseSamples]
+        use_timestamps = timestamps[use_samples]
+        overlap_mask = (use_samples <= last_used_sample)
+        if np.any(overlap_mask):
+            use_samples = use_samples[np.logical_not(overlap_mask)]
+            use_timestamps = timestamps[use_samples]
             
-        #if intStartSample is not None and intEndSample is not None and intStartSample > intEndSample:
-        #    intEndSample = None
-        #    intStartSample = None
-        #
-        #if intEndSample is None:
-        #    intEndSample = len(vecTimestamps)
-        #
-        # if intStartSample is None or intEndSample is None:
-        #     vecUseSamples = None
-        # else:
-        #     vecEligibleSamples = np.arange(intStartSample, intEndSample+1)
-        #     indUseSamples = np.logical_and(vecEligibleSamples >= 0, vecEligibleSamples < intSamples)
-        #     vecUseSamples = vecEligibleSamples[indUseSamples]
-        #
-        # # check if beginning or end
-        # if vecUseSamples.size > 0:
-        #     if intTrial == 0:
-        #         vecUseSamples = np.arange(0, vecUseSamples[-1]+1)
-        #     elif intTrial == (intTrials-1):
-        #         vecUseSamples = np.arange(vecUseSamples[0], intSamples)
-
-        # add entries
-        #vecUseT = vecTimestamps[vecUseSamples]
-        #indOverlap = vecUseSamples <= intLastUsedSample
-
-        # # get event t
-        # if intTrial == 0:
-        #     dblPseudoEventT = 0.0
-        # else:
-        #     if intTrial > 0 and dblWindowDur > (dblEventT - vecEventTimes[intTrial-1]):
-        #         # remove spikes from overlapping epochs
-        #         vecUseSamples = vecUseSamples[~indOverlap]
-        #         vecUseT = vecTimestamps[vecUseSamples]
-        #         dblPseudoEventT = dblPseudoEventT + dblEventT - vecEventTimes[intTrial-1]
-        #     else:
-        #         dblPseudoEventT = dblPseudoEventT + dblWindowDur
-
         # make local pseudo event time
-        if vecUseSamples.size == 0:
-            vecLocalPseudoT = None
-            vecLocalPseudoV = None
-            dblPseudoEventT = dblEventT - vecTimestamps[intLastUsedSample] + dblStartNextAtT
+        if use_samples.size == 0:
+            local_pseudo_timestamps = None
+            local_pseudo_data = None
+            pseudo_event_time = event_time - timestamps[last_used_sample] + start_next_at_time
         else:
-            intLastUsedSample = vecUseSamples[-1]
-            vecLocalPseudoV = vecData[vecUseSamples]
-            vecLocalPseudoT = vecUseT - vecUseT[0] + dblStartNextAtT
-            dblPseudoEventT = dblEventT - vecUseT[0] + dblStartNextAtT
+            last_used_sample = use_samples[-1]
+            local_pseudo_data = data[use_samples]
+            local_pseudo_timestamps = use_timestamps - use_timestamps[0] + start_next_at_time
+            pseudo_event_time = event_time - use_timestamps[0] + start_next_at_time
 
-            if len(vecTimestamps) > (intLastUsedSample+1):
-                dblStepEnd = vecTimestamps[intLastUsedSample+1] - vecTimestamps[intLastUsedSample]
+            if len(timestamps) > (last_used_sample + 1):
+                step_end = timestamps[last_used_sample + 1] - timestamps[last_used_sample]
             else:
-                dblStepEnd = dblMedianDur
+                step_end = median_duration
 
-            dblStartNextAtT = vecLocalPseudoT[-1] + dblStepEnd
+            start_next_at_time = local_pseudo_timestamps[-1] + step_end
 
-        if intTrial==0:
-            intFirstSample = vecUseSamples[0]
-            dblPseudoT0 = vecLocalPseudoT[0]
+        pseudo_time_list.append(local_pseudo_timestamps)
+        pseudo_data_list.append(local_pseudo_data)
+        pseudo_event_times.append(pseudo_event_time)
 
-        # if intFirstSample is None and vecUseSamples.size > 0:
-        #     intFirstSample = vecUseSamples[0]
-        #     dblPseudoT0 = dblPseudoEventT
-        # if vecLocalPseudoT is not None:
-        #     # assign data for this trial
-        #     cellPseudoTime.append(vecLocalPseudoT)
-        #     cellPseudoData.append(vecLocalPseudoV)
-        #     vecPseudoEventT[intTrial] = dblPseudoEventT
-
-        cellPseudoTime.append(vecLocalPseudoT)
-        cellPseudoData.append(vecLocalPseudoV)
-        vecPseudoEventT.append(dblPseudoEventT)
-
-    # %% add beginning
-    dblT1 = vecTimestamps[intFirstSample]
-    intT0 = findfirst(vecTimestamps > (dblT1 - dblWindowDur))
-    if intT0 is not None and intFirstSample is not None and intFirstSample > 0:
-        dblStepBegin = vecTimestamps[intFirstSample] - vecTimestamps[intFirstSample-1]
-        vecSampAddBeginning = np.arange(intT0-1, intFirstSample)
-        vecAddBeginningT = vecTimestamps[vecSampAddBeginning] - vecTimestamps[vecSampAddBeginning[0]] \
-            + dblPseudoT0 - dblStepBegin - \
-            np.ptp(vecTimestamps[vecSampAddBeginning]
-                   )  # make local to first entry in array, then preceding pseudo event t0
-        cellPseudoTime.append(vecAddBeginningT)
-        cellPseudoData.append(vecData[vecSampAddBeginning])
-
-    # %% add end
-    intFindTail = findfirst(vecTimestamps > (vecEventTimes[-1]+dblWindowDur))
-    if intFindTail is None:
-        raise Exception(
-            "zetatstest error - dblMaxDur is too large: the tail of the final event would extend beyond the end of the time-series data. Please include more data, shorten dblMaxDur or remove the last event.")
-    else:
-        dblTn = vecTimestamps[intLastUsedSample]
-        intTn = findfirst(vecTimestamps > dblTn)
-        if intTn is not None and (intTn-1) > intLastUsedSample:
-            vecSampAddEnd = np.arange(intLastUsedSample, intTn)+1
-            cellPseudoTime.append(vecTimestamps[vecSampAddEnd] - vecTimestamps[vecSampAddEnd[0]] + dblStartNextAtT)
-            cellPseudoData.append(vecData[vecSampAddEnd])
-
-    # %% recombine into vector
-    vecPseudoTime = np.vstack(np.concatenate(cellPseudoTime))
-    vecPseudoData = np.vstack(np.concatenate(cellPseudoData))
-    return vecPseudoTime, vecPseudoData, vecPseudoEventT
+    # %% filter out None values and recombine into 1D vector
+    pseudo_timestamps = np.concatenate([t for t in pseudo_time_list if t is not None]).ravel()
+    pseudo_data = np.concatenate([d for d in pseudo_data_list if d is not None]).ravel()
+    return pseudo_timestamps, pseudo_data, pseudo_event_times
 
 
-# %% getTimeseriesOffsetOne
-def getTimeseriesOffsetOne(vecTimestamps, vecData, vecEventStartT, dblUseMaxDur,dblSuperResFactor=100):
-    '''
-    vecDeviation, vecThisFrac, vecThisFracLinear, vecTime = getTimeseriesOffsetOne(vecT, vecV, vecEventT, dblUseMaxDur)
+# %% get_timeseries_offset_one
+def get_timeseries_offset_one(timestamps, data, event_start_times, max_duration, super_resolution_factor_or_ref_t=100):
+    """
+    Calculates the deviation of the mean time-series response from a linear accumulation.
 
     Parameters
     ----------
-    vecTimestamps : TYPE
-        DESCRIPTION.
-    vecData : TYPE
-        DESCRIPTION.
-    vecEventStartT : TYPE
-        DESCRIPTION.
-    dblUseMaxDur : TYPE
-        DESCRIPTION.
+    timestamps : ndarray
+        1D array of timestamps for the data.
+    data : ndarray
+        1D array of time-series data values.
+    event_start_times : ndarray
+        1D array of event onset times.
+    max_duration : float
+        The duration of the window to analyze after each event.
+    super_resolution_factor_or_ref_t : int or ndarray, optional
+        Factor for time-vector construction or a pre-defined reference time vector. Default is 100.
 
     Returns
     -------
-    vecDeviation, vecThisFrac, vecThisFracLinear, vecTime.
-
-    '''
+    deviation, this_fraction, this_fraction_linear, time_vector
+    """
 
     # %% prepare
-    vecTime = getTsRefT(vecTimestamps, vecEventStartT, dblUseMaxDur, dblSuperResFactor)
+    if isinstance(super_resolution_factor_or_ref_t, (np.ndarray, list)):
+        time_vector = super_resolution_factor_or_ref_t
+    else:
+        time_vector = get_ts_ref_t(timestamps, event_start_times, max_duration, super_resolution_factor_or_ref_t)
 
     # build interpolated data
-    vecTime, matTracePerTrial = getInterpolatedTimeSeries(vecTimestamps, vecData, vecEventStartT, vecTime)
-    indKeepPoints = np.logical_and(vecTime >= 0, vecTime <= dblUseMaxDur)
-    vecTime = vecTime[indKeepPoints]
-    matTracePerTrial = matTracePerTrial[:, indKeepPoints]
-    vecMeanTrace = np.nanmean(matTracePerTrial, axis=0)
-    vecThisFrac = np.cumsum(vecMeanTrace) / np.sum(vecMeanTrace)
+    time_vector, trace_per_trial = get_interpolated_time_series(timestamps, data, event_start_times, time_vector)
+    keep_points = np.logical_and(time_vector >= 0, time_vector <= max_duration)
+    time_vector = time_vector[keep_points]
+    trace_per_trial = trace_per_trial[:, keep_points]
+    mean_trace = np.nanmean(trace_per_trial, axis=0)
+    this_fraction = np.cumsum(mean_trace) / np.sum(mean_trace)
 
     # get linear fractions
-    vecThisFracLinear = np.linspace(np.mean(vecMeanTrace), np.sum(
-        vecMeanTrace), len(vecMeanTrace)) / np.sum(vecMeanTrace)
+    this_fraction_linear = np.linspace(np.mean(mean_trace), np.sum(
+        mean_trace), len(mean_trace)) / np.sum(mean_trace)
 
     # assign data
-    vecDeviation = vecThisFrac - vecThisFracLinear
-    vecDeviation = vecDeviation - np.mean(vecDeviation)
+    deviation = this_fraction - this_fraction_linear
+    deviation = deviation - np.mean(deviation)
 
     # %% return
-    return vecDeviation, vecThisFrac, vecThisFracLinear, vecTime
+    return deviation, this_fraction, this_fraction_linear, time_vector
 
-# %% getTsRefT
+# %% get_ts_ref_t
 
 
-def getTsRefT(vecTimestamps, vecEventStartT, dblUseMaxDur, dblSuperResFactor=1):
+def get_ts_ref_t(timestamps, event_start_times, max_duration, super_resolution_factor=1):
     # pre-allocate
-    vecEventStartT = np.sort(vecEventStartT)
-    intTimeNum = len(vecTimestamps)-1
+    timestamps = np.ravel(timestamps)
+    event_start_times = np.sort(event_start_times)
+    num_time_points = len(timestamps) - 1
 
-    # intTrial = -1
     # build common timeframe
-    cellRefT = []
-    for intTrial, dblStartT in enumerate(vecEventStartT):
-        # %%
-        # intTrial = intTrial + 1
-        # dblStartT = vecEventStartT[intTrial]
-        # get original times
-        intBegin = findfirst(vecTimestamps > dblStartT)
-        if intBegin is None:
-            intStartT = 0
+    reference_t_list = []
+    for trial_idx, start_time in enumerate(event_start_times):
+        begin_index = np.searchsorted(timestamps, start_time, side='right')
+        if begin_index >= len(timestamps):
+            start_index = 0
         else:
-            intStartT = np.max([0, intBegin - 1])
+            start_index = np.max([0, begin_index - 1])
 
-        dblStopT = dblStartT+dblUseMaxDur
-        intEnd = findfirst(vecTimestamps > dblStopT)
-        if intEnd is None:
-            intStopT = intTimeNum
+        stop_time = start_time + max_duration
+        end_index = np.searchsorted(timestamps, stop_time, side='right')
+        if end_index >= len(timestamps):
+            stop_index = num_time_points
         else:
-            intStopT = np.min([intTimeNum, intEnd])
+            stop_index = np.min([num_time_points, end_index])
 
-        vecSelectSamples = np.arange(intStartT, intStopT+1)
+        select_samples = np.arange(start_index, stop_index + 1)
 
         # save data
-        cellRefT.append(vecTimestamps[vecSelectSamples]-dblStartT)
+        reference_t_list.append(timestamps[select_samples] - start_time)
 
     # %% set tol
-    if dblSuperResFactor==1:
-        intUseEntry = np.argmax([len(item) for item in cellRefT])
-        vecRefT = cellRefT[intUseEntry].flatten()
-        dblMedDiff = np.median(np.diff(vecRefT))
-        vecTime = np.round(10*(vecRefT/dblMedDiff))/(10/dblMedDiff)
+    if super_resolution_factor == 1:
+        use_entry_index = np.argmax([len(item) for item in reference_t_list])
+        reference_t = reference_t_list[use_entry_index].flatten()
+        median_diff = np.median(np.diff(reference_t))
+        time_vector = np.round(10 * (reference_t / median_diff)) / (10 / median_diff)
     else:
-        dblSampInterval = np.median(np.diff(vecTimestamps, axis=0))
-        dblTol = dblSampInterval/100
-        vecVals = np.sort(np.vstack(np.concatenate(cellRefT)))
-        vecTime = np.hstack(uniquetol(vecVals, dblTol))
+        sample_interval = np.median(np.diff(timestamps, axis=0))
+        tolerance = sample_interval / 100
+        values = np.sort(np.concatenate(reference_t_list))
+        time_vector = uniquetol(values, tolerance)
 
     # return
-    return vecTime
+    return time_vector
 
-# %% getInterpolatedTimeSeries
-
-
-def getInterpolatedTimeSeries(vecTimestamps, vecData, vecEventStartT, vecRefTime):
-    '''
-   getInterpolatedTimeSeries Builds common timeframe
-     syntax: vecRefTime,matTracePerTrial = getInterpolatedTimeSeries(vecTimestamps,vecData,vecEventStartT,dblUseMaxDur,vecRefTime)
-       input:
-       - vecTimestamps; time stamps (s)
-       - vecData; time-series data
-       - vecEventStartT: trial start times (s)
-       - dblUseMaxDur: window (s)
-       - vecTime: reference time vector (s)
-
-     Version history:
-     1.0 - June 26 2019
-         Created by Jorrit Montijn
-         '''
-
-    # assign data
-    vecRefTime = np.hstack((vecRefTime))
-    vecTimestamps = np.hstack((vecTimestamps))
-    vecData = np.hstack((vecData))
-    matTracePerTrial = np.zeros((len(vecEventStartT), len(vecRefTime)))
-    for intTrial, dblStartT in enumerate(vecEventStartT):
-        # original times
-        intBegin = findfirst(vecTimestamps > (dblStartT + vecRefTime[0]))
-        if intBegin is None:
-            raise Exception(
-                "getInterpolatedTimeSeries error - no time stamps exist after trial start")
-
-        intStartT = np.max([0, intBegin - 1])
-        intEnd = findfirst(vecTimestamps > (dblStartT + vecRefTime[-1]))
-        if intEnd is None:
-            intStopT = len(vecTimestamps)
-        else:
-            intStopT = np.min([len(vecTimestamps), intEnd + 1])
-
-        vecSelectSamples = np.arange(intStartT, intStopT)
-
-        # get data
-        vecUseTimes = vecTimestamps[vecSelectSamples]
-        vecUseData = vecData[vecSelectSamples]
-
-        # interpolate to
-        vecUseInterpT = vecRefTime+dblStartT
-
-        # get interpolated data
-        matTracePerTrial[intTrial, :] = np.interp(vecUseInterpT, vecUseTimes, vecUseData)
-
-    # return
-    return vecRefTime, matTracePerTrial
-
-# %% uniquetol
+# %% get_interpolated_time_series
 
 
-def uniquetol(array_in, dblTol):
-    '''
-    array_unique = uniquetol(array_in,dblTol)
+def get_interpolated_time_series(timestamps, data, event_start_times, reference_time):
+    """
+    Interpolates time-series data into a trial-by-time matrix based on event onsets.
 
     Parameters
     ----------
-    array_in : np.array (float)
-    dblTol : tolerance (float)
+    timestamps : ndarray
+        1D array of timestamps for the continuous data.
+    data : ndarray
+        1D array of values corresponding to the timestamps.
+    event_start_times : ndarray
+        1D array of event onset times (e.g., stimulus start).
+    reference_time : ndarray
+        1D array of relative time points (e.g., 0 to max_duration) to interpolate onto.
 
     Returns
     -------
-    array_unique : np.array (float)
-        array with unique values within tolerance.
+    reference_time : ndarray
+        The reference time vector used.
+    trace_per_trial : ndarray
+        A 2D array of shape (num_events, num_reference_time_points) containing interpolated data.
+    """
 
-    '''
-    return (np.unique(np.floor(array_in/dblTol).astype(int)))*dblTol
+    # ensure 1D arrays
+    reference_time = np.ravel(reference_time)
+    timestamps = np.ravel(timestamps)
+    data = np.ravel(data)
+    trace_per_trial = np.zeros((len(event_start_times), len(reference_time)))
+    for trial_idx, start_time in enumerate(event_start_times):
+        # original times
+        begin_index = np.searchsorted(timestamps, start_time + reference_time[0], side='right')
+        if begin_index >= len(timestamps):
+            raise Exception(
+                "get_interpolated_time_series error - no time stamps exist after trial start")
 
-def my_randint(low, high=None, size=None):
-    # random.randint(low, high=None, size=None, dtype=int)
-    #
-    # implementation of randint that returns same values as MATLAB's randi (tested for MATLAB R2023b)
+        start_index = np.max([0, begin_index - 1])
+        end_index = np.searchsorted(timestamps, start_time + reference_time[-1], side='right')
+        if end_index >= len(timestamps):
+            stop_index = len(timestamps)
+        else:
+            stop_index = np.min([len(timestamps), end_index])
 
-    if high is None:
-        high = low
-        low = 0
-    
-    x = np.floor((np.random.random_sample(size)*(high-low)) + low).astype(np.int64)
+        select_samples = np.arange(start_index, stop_index)
 
-    return x
+        # get data
+        use_times = timestamps[select_samples]
+        use_data = data[select_samples]
+
+        # interpolate to
+        use_interp_times = reference_time + start_time
+
+        # get interpolated data
+        trace_per_trial[trial_idx, :] = np.interp(use_interp_times, use_times, use_data)
+
+    # return
+    return reference_time, trace_per_trial
+
+# %% uniquetol
+def uniquetol(input_array, tolerance):
+    """
+    Returns unique values from an array within a specified tolerance.
+
+    Parameters
+    ----------
+    input_array : ndarray
+        The array of values to process.
+    tolerance : float
+        The precision threshold for grouping values.
+
+    Returns
+    -------
+    unique_values : ndarray
+        An array of unique values, rounded to the nearest multiple of
+        the tolerance.
+    """
+    return (np.unique(np.round(input_array / tolerance).astype(int))) * tolerance
